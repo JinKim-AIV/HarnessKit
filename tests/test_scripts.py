@@ -96,6 +96,8 @@ class ScanTests(unittest.TestCase):
 
     def test_env_scan_sees_user_project_and_codex(self):
         skill(os.path.join(self.e.claude, "skills", "my-review"), "my-review", "review pull requests")
+        skill(os.path.join(self.e.claude, "skills", "synced", "bucket-1", "frontend-design"),
+              "frontend-design", "Create frontend interfaces")
         skill(os.path.join(self.e.project, ".claude", "skills", "orch"), "orch", "orchestrator")
         write(os.path.join(self.e.project, ".claude", "agents", "analyst.md"), "---\nname: analyst\ndescription: a\n---\n")
         write(os.path.join(self.e.project, "CLAUDE.md"), "## 하네스: 데모\n")
@@ -104,6 +106,8 @@ class ScanTests(unittest.TestCase):
         data = json.loads(self.e.run("hkscan.py", "env", "--project", self.e.project))
         ids = {i["id"] for i in data["claude"]["items"]}
         self.assertIn("skill:user:my-review", ids)
+        self.assertNotIn("skill:user:synced", ids)
+        self.assertIn("skill:synced:frontend-design", ids)
         self.assertIn("skill:project:orch", ids)
         codex_ids = {i["id"] for i in data["codex"]["items"]}
         self.assertIn("codex-skill:user:humanize", codex_ids)

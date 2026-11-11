@@ -47,6 +47,13 @@ description: "HarnessKit(킷, kit). 프로젝트나 업무에 맞는 AI 하네�
 
 **4. 업무 분석과 도구 선별**: `mode-build.md` 1단계로 업무를 분석해 필요한 역량을 정한다. `references/catalog.json`에서 `role`·`capabilities`가 맞는 후보를 고르고 `use_when`, `skip_when`, `requires`, `external_data`를 보고 걸러낸다. 같은 역할 도구가 이미 설치돼 있으면 그것을 쓴다. 산출물에 사람이 읽는 한국어 글이 있으면 한국어 윤문 도구(`role: korean-writing`)를 기본 후보로 올린다. 카탈로그에 없는 도구를 원하면 `mode-check.md`의 저장소 점검을 거친다. 후보를 이유와 함께 표로 보여 준다.
 
+**4-a. 바깥에서 찾기**: 설치된 도구(동기화된 스킬 포함)와 카탈로그로 채우지 못한 역량이 있으면, 새 스킬을 만들기 전에 바깥에서 찾아본다. 이미 있는 검증된 스킬이 새로 만든 초안보다 낫기 때문이다.
+- 찾는 순서: 공식 출처(Claude Code는 `anthropics/skills`와 공식 마켓플레이스 `claude-plugins-official`, Codex는 공식 문서의 스킬) → 큐레이션 목록(`hesreallyhim/awesome-claude-code`, `VoltAgent/awesome-agent-skills`) → 일반 검색. 역량마다 후보는 3개까지만 본다.
+- 웹 검색·웹 읽기 도구가 없으면 사용자에게 후보 주소를 묻거나 새로 만드는 쪽으로 간다.
+- 후보마다 `mode-check.md`의 저장소 점검(받기, 스캔, 충돌 체크, 라이선스, 외부 전송)을 거친다. 받은 코드는 실행하지 않는다.
+- 결과는 **카탈로그 밖(미검토)** 표시를 달아 다른 후보와 같은 표에 넣는다. 사용자가 "설치된 것만 쓰라"고 하면 설치는 하지 않고, 쓸 만한 후보가 있었다는 사실만 한 줄로 알린다.
+- 찾아도 맞는 것이 없으면 `mode-build.md` 4단계에서 새로 만든다.
+
 **5. 후보 충돌 체크와 설치**: `hkcheck.py --env ... --candidate <id> ...`로 설치 전에 점검하고 보고한다. 승인받은 도구만 카탈로그의 해당 런타임 설치 명령으로 설치한다.
 - `/plugin ...` 같은 슬래시 명령은 사용자에게 입력을 부탁한다. 셸 명령은 승인 후 실행한다.
 - `verified: survey` 도구는 실행 전에 원 저장소 README로 명령을 확인한다.

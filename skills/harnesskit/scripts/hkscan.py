@@ -295,6 +295,15 @@ def scan_claude(project):
             override = settings["skillOverrides"].get(e["name"], "on")
             items.append({"id": f"skill:{scope}:{e['name']}", "kind": "skill", "scope": scope,
                           "name": e["name"], "override": override, "skills": [e]})
+    # Skills synced from claude.ai live one level deeper: skills/synced/<bucket>/<skill>/SKILL.md
+    synced_root = os.path.join(CLAUDE_HOME, "skills", "synced")
+    for bucket in list_dirs(synced_root):
+        if bucket.startswith("."):
+            continue
+        for e in scan_skills_dir(os.path.join(synced_root, bucket)):
+            override = settings["skillOverrides"].get(e["name"], "on")
+            items.append({"id": f"skill:synced:{e['name']}", "kind": "skill", "scope": "synced",
+                          "name": e["name"], "override": override, "skills": [e]})
         for e in scan_md_dir(os.path.join(base, "agents"), "agent"):
             items.append({"id": f"agent:{scope}:{e['name']}", "kind": "agent", "scope": scope,
                           "name": e["name"], "agents": [e]})
