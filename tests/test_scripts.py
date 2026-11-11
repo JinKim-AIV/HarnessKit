@@ -23,6 +23,11 @@ def write(path, text):
         f.write(textwrap.dedent(text).lstrip())
 
 
+def read(path):
+    with open(path, encoding="utf-8") as f:
+        return f.read()
+
+
 def skill(path, name, desc, extra=""):
     write(os.path.join(path, "SKILL.md"), f"---\nname: {name}\ndescription: {desc}\n{extra}---\n\nbody\n")
 
@@ -104,7 +109,8 @@ class ScanTests(unittest.TestCase):
         self.assertIn("codex-skill:user:humanize", codex_ids)
         self.assertIn("codex-mcp:user:context7", codex_ids)
         self.assertTrue(data["harness"]["exists"])
-        self.assertEqual(data["harness"]["claude_md_section"], "데모")
+        self.assertEqual(data["harness"]["sections"]["CLAUDE.md"], "데모")
+        self.assertEqual(data["harness"]["claude"]["agents"], ["analyst"])
 
 
 class CheckTests(unittest.TestCase):
@@ -160,6 +166,53 @@ class CheckTests(unittest.TestCase):
     def test_unknown_catalog_id_fails(self):
         with self.assertRaises(subprocess.CalledProcessError):
             self.check("--candidate", "no-such-tool")
+
+
+class LockTests(unittest.TestCase):
+    def setUp(self):
+        self.e = Env()
+        p = self.e.project
+        write(os.path.join(p, ".claude", "agents", "analyst.md"),
+              "---\nname: analyst\ndescription: Analyze requirements\nmodel: sonnet\n---\n\nRead the spec and list risks.\n")
+        skill(os.path.join(p, ".claude", "skills", "demo-orch"), "demo-orch", "demo orchestrator")
+        self.data = os.path.join(self.e.root, "data.json")
+        write(self.data, json.dumps({
+            "runtimes": ["claude", "codex"],
+            "tools": [{"id": "im-not-ai", "status": "use", "why": "Korean reports"}],
+            "decisions": [{"finding": "superpowers vs harnesskit (slot)", "choice": "disable superpowers here"}],
+            "harness": {"orchestrator": "demo-orch", "agents": ["analyst"], "skills": ["demo-orch"]},
+        }))
+
+    def tearDown(self):
+        self.e.cleanup()
+
+    def test_write_status_mirror(self):
+        p = self.e.project
+        self.e.run("hklock.py", "write", "--project", p, "--data", self.data)
+        lock = json.loads(read(os.path.join(p, "harnesskit.lock")))
+        self.assertIn(".claude/agents/analyst.md", lock["harness"]["files"])
+        self.assertEqual(self.e.run("hklock.py", "status", "--project", p, "--brief"), "")
+
+        with open(os.path.join(p, ".claude", "agents", "analyst.md"), "a", encoding="utf-8") as f:
+            f.write("Also check tests.\n")
+        line = self.e.run("hklock.py", "status", "--project", p, "--brief")
+        self.assertIn("evolve", line)
+
+        skill(os.path.join(self.e.claude, "skills", "new-tool"), "new-tool", "something new")
+        status = json.loads(self.e.run("hklock.py", "status", "--project", p))
+        self.assertIn("claude_skills", status["env_changes"])
+
+        self.e.run("hklock.py", "mirror", "--project", p, "--to", "codex")
+        toml = read(os.path.join(p, ".codex", "agents", "analyst.toml"))
+        self.assertIn('name = "analyst"', toml)
+        self.assertIn("Read the spec and list risks.", toml)
+        self.assertTrue(os.path.isfile(os.path.join(p, ".agents", "skills", "demo-orch", "SKILL.md")))
+
+        os.remove(os.path.join(p, ".claude", "agents", "analyst.md"))
+        self.e.run("hklock.py", "mirror", "--project", p, "--to", "claude")
+        md = read(os.path.join(p, ".claude", "agents", "analyst.md"))
+        self.assertIn("name: analyst", md)
+        self.assertIn("Read the spec and list risks.", md)
 
 
 class CatalogTests(unittest.TestCase):

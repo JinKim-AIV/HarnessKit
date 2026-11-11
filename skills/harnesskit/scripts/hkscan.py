@@ -359,18 +359,24 @@ def scan_harness(project):
     pc = os.path.join(project, ".claude")
     agents = [e["name"] for e in scan_md_dir(os.path.join(pc, "agents"), "agent")]
     skills = [e["name"] for e in scan_skills_dir(os.path.join(pc, "skills"))]
-    claude_md = read_text(os.path.join(project, "CLAUDE.md")) or ""
-    m = re.search(r"^##\s*하네스[:：]?\s*(.+)$|^##\s*Harness[:：]?\s*(.+)$", claude_md, re.M)
-    lock_path = os.path.join(pc, "harnesskit.lock")
+    codex_agents = [os.path.splitext(f)[0] for f in list_files(os.path.join(project, ".codex", "agents"), ext=".toml")]
+    shared_skills = [e["name"] for e in scan_skills_dir(os.path.join(project, ".agents", "skills"))]
+    section_re = re.compile(r"^##\s*(?:하네스|Harness)[:：]?\s*(.+)$", re.M)
+    sections = {}
+    for name in ("CLAUDE.md", "AGENTS.md"):
+        m = section_re.search(read_text(os.path.join(project, name)) or "")
+        if m:
+            sections[name] = m.group(1).strip()
+    lock_path = os.path.join(project, "harnesskit.lock")
+    skill_text = " ".join(read_text(os.path.join(pc, "skills", s, "SKILL.md")) or "" for s in skills)
     return {
-        "exists": bool(agents or skills or m),
-        "agents": agents,
-        "skills": skills,
-        "claude_md_section": (m.group(1) or m.group(2)).strip() if m else None,
+        "exists": bool(agents or skills or codex_agents or shared_skills or sections),
+        "claude": {"agents": agents, "skills": skills},
+        "codex": {"agents": codex_agents, "skills": shared_skills},
+        "sections": sections,
         "workspace": os.path.isdir(os.path.join(project, "_workspace")),
         "lock": lock_path if os.path.isfile(lock_path) else None,
-        "v1_artifacts": bool(re.search(r"TeamCreate|TeamDelete|CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
-                                       " ".join(read_text(os.path.join(pc, "skills", s, "SKILL.md")) or "" for s in skills))),
+        "v1_artifacts": bool(re.search(r"TeamCreate|TeamDelete|CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS", skill_text)),
     }
 
 
