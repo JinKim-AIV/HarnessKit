@@ -38,78 +38,19 @@ description: "HarnessKit(킷, kit). 프로젝트나 업무에 맞는 AI 하네�
 
 ## build 절차
 
-**0. 상태 확인**: 프로젝트에 `harnesskit.lock`이 있으면 `hklock.py status --project .`를 실행하고 신호가 있으면 먼저 알린다.
+자세한 절차는 `references/kit-build.md`에 있다. 단계마다 필요한 문서만 읽는다.
 
-**1. 스캔**: `hkscan.py env --project . --out _workspace/harnesskit/scan.json`. 사용자에게 세 줄로 요약한다: 설치된 도구, 기존 하네스(Claude Code·Codex), 상시 비용 상위 3개(추정 토큰).
-
-**2. 분기**: 하네스가 필요한 일인지 판단한다.
-- 산출물이 하나이고, 반복되지 않고, 한 세션에 끝나며, 역할을 나눠도 이득이 없으면 단발 작업이다. "하네스 없이 이 스킬로 바로 하면 된다"고 맞는 스킬을 알려 주고 선택받는다. 그래도 원하면 진행한다.
-- 기존 하네스가 있으면 새로 만들지 않고 `mode-build.md` 0단계 표의 확장·유지보수 경로를 탄다.
-
-**3. 현재 환경 충돌 체크**: `hkcheck.py --env _workspace/harnesskit/scan.json --out _workspace/harnesskit/check.json`. `review` 항목은 `references/conflict-rules.md`로 판정한다. high/medium 항목은 해결안을 고르게 하고 적용한다. 고른 결과는 7단계 lock의 `decisions`에 남긴다.
-
-**4. 도구 선별 (후보는 넓게, 설치는 좁게)**: `mode-build.md` 1단계로 업무를 분석해 필요한 역량을 정한 뒤, 역량마다 세 곳에서 후보를 모은다.
-1. **이미 설치된 것**(동기화된 스킬 포함): 맞는 정도가 비슷하면 설치된 쪽을 먼저 쓴다. 설치 비용이 없다. 카탈로그나 웹 후보가 분명히 더 잘 맞으면 그쪽을 추천하고 이유를 적는다.
-2. **카탈로그**: `hkcatalog.py find --role <역할>` 또는 `--text <키워드>`로 찾는다. 키트 카탈로그와 사용자가 보관해 둔 **내 카탈로그**(`origin: mine`)가 함께 나온다. 검토를 마친 도구라 우선하고, 내 카탈로그 항목은 "내 카탈로그"로 표시한다. `use_when`, `skip_when`, `requires`, 외부 전송을 보고 거른다.
-3. **바깥(웹)**: 카탈로그와 별개로 매번 찾아본다. 공식 출처(Claude Code는 `anthropics/skills`와 공식 마켓플레이스 `claude-plugins-official`, Codex는 공식 문서의 스킬) → 큐레이션 목록(`hesreallyhim/awesome-claude-code`, `VoltAgent/awesome-agent-skills`) → 일반 검색 순서로 본다. 역량마다 3개, 전체 8개까지만 본다. 결과에는 **카탈로그 밖** 표시를 단다. 웹 검색 도구가 없으면 이 단계는 건너뛰고 그 사실을 알린다.
-
-산출물에 사람이 읽는 한국어 글이 있으면 한국어 윤문 도구(`role: korean-writing`)를 기본 후보에 넣는다. 산출물에 화면(웹 UI, HTML)이 있으면 `hkcatalog.py find --category ui-ux`로 UI 설계·리뷰 도구를 후보에 넣고, 6단계에서 디자인 QA 에이전트(`references/roles/ui-ux-reviewer.md`)를 둔다. 모은 후보는 출처(설치됨 / 카탈로그 / 카탈로그 밖), 하는 일, 이유를 한 표로 보여 주고 고르게 한다. 같은 역할 후보가 여럿이면 하나를 추천하고, 나머지는 왜 뺐는지 한 줄씩 적는다.
-
-**5. 설치 전 점검과 설치**: 고른 도구 중 아직 설치되지 않은 것마다 아래를 차례로 한다.
-1. **받기**: 새로 만든 빈 임시 폴더에 `git clone --depth 1 <저장소>`. 받은 코드는 실행하지 않는다.
-2. **보안 점검(필수)**: `hkinspect.py <폴더> [--plugin <이름>]`. 판정에 따라 처리한다.
-   - `SAFE`: 다음 단계로 간다.
-   - `CAUTION`: 걸린 항목(파일:줄)을 보여 주고, 사용자가 진행을 고를 때만 간다.
-   - `DO_NOT_INSTALL`: 설치하지 않는다. 사용자가 근거를 본 뒤 위험을 감수한다고 분명히 말한 경우에만 설치하고, 그 결정을 lock의 `decisions`에 남긴다.
-   - `missing`(SkillSpector 없음): 출력의 설치 명령으로 SkillSpector부터 설치할지 묻는다. 설치하지 못하면 외부 도구는 설치하지 않는다.
-3. **기능 충돌 체크**: `hkscan.py repo <폴더> --out ...`과 `hkcheck.py --env ... --candidate-scan ...`(카탈로그 도구는 `--candidate <id>`)로 설치된 것과 부딪히는지 본다. `review` 항목은 `conflict-rules.md`로 판정한다.
-4. **CLI로 설치하는 도구**(Spec Kit의 `specify init`, BMAD 설치기처럼 프로젝트에 스킬·명령을 만들어 주는 것): SkillSpector는 스킬 점검용이라 CLI 저장소 전체를 넣으면 판정이 부풀려진다. 설치 전에는 저장소 점검 결과를 참고로 보여 주고, 설치한 뒤 생성된 폴더(예: `.claude/skills/speckit-*`)를 `hkinspect.py`로 다시 점검해 통과해야 쓴다.
-5. **설치**: 두 점검 결과를 한 표로 보여 주고 승인받은 것만 설치한다. **설치 범위는 기본이 이 프로젝트**다(아래 표). 전역 설치는 사용자가 요청할 때만 한다. 카탈로그 설치 명령은 전역 기준으로 적힌 것이 많으니 표대로 바꿔 실행하고, `verified: survey`면 README로 명령을 한 번 확인한다. `/plugin ...` 같은 슬래시 명령은 사용자에게 입력을 부탁한다. 설치 후 다시 스캔하고, 실패한 도구는 다시 시도하지 않고 `skipped`로 기록한다.
-
-| 종류 | 프로젝트 범위 (기본) | 나만 쓰기 | 전역 (요청할 때만) |
-|---|---|---|---|
-| 스킬 폴더 (Claude Code) | `<프로젝트>/.claude/skills/<이름>/` | 같은 위치 + `.gitignore` | `~/.claude/skills/<이름>/` |
-| 스킬 폴더 (Codex) | `<프로젝트>/.agents/skills/<이름>/` | 같은 위치 + `.gitignore` | `~/.codex/skills/<이름>/` |
-| 플러그인 (Claude Code) | `claude plugin marketplace add <저장소> --scope project` 후 `claude plugin install <이름>@<마켓> --scope project` | `--scope local` | `--scope user` |
-| MCP (Claude Code) | `claude mcp add --scope project ...` (`.mcp.json`) | `--scope local` | `--scope user` |
-| Codex 플러그인·MCP | 프로젝트 범위를 확인하지 못했다. 사용자 범위로 설치하고 그렇다고 알린다 | | |
-| CLI (`uv tool`, `npx`) | 기계 단위 도구다. `npx`는 버전을 고정해 필요할 때만 실행한다 | | |
-
-프로젝트 범위는 설정이 `.claude/settings.json`·`.mcp.json`·프로젝트 스킬 폴더에 남아 git으로 팀과 공유된다. 상시 비용이 그 프로젝트에서만 들고, 다른 프로젝트의 스킬과 부딪히지 않는다.
-
-**6. 하네스 설계·생성**: `references/mode-build.md`의 1~6단계를 따른다. 2단계 설계가 끝나면 **파일을 만들기 전에 설계안(2-4)을 보여 주고 승인받는다.** 이때 아래 **도구 브리프**를 함께 넘긴다.
-
-```
-도구 브리프
-- <플러그인명:스킬명 또는 스킬명> — 하는 일 / 쓸 때 / 쓰지 않을 때 (catalog의 use_when, skip_when)
-- 끈 도구와 이유 (3단계 결정)
-- 절차 담당: 하네스 오케스트레이터 | <외부 프레임워크>
-- 런타임: claude | codex | both
-```
-
-런타임별 출력: `claude`는 `.claude/` 아래에 만든다. `codex`는 `references/codex.md` 형식으로 만든다. `both`는 Claude Code 기준으로 만든 뒤 7단계에서 `hklock.py mirror --to codex`를 실행한다.
-
-**7. 기록**: `_workspace/harnesskit/lock-data.json`을 쓰고 `hklock.py write --project . --data _workspace/harnesskit/lock-data.json`을 실행한다.
-
-```json
-{
-  "runtimes": ["claude"],
-  "tools": [
-    {"id": "im-not-ai", "status": "use", "scope": "user", "why": "보고서 문장 다듬기 (이미 전역에 설치돼 있음)"},
-    {"id": "design-qa", "status": "use", "scope": "project", "why": "디자인 QA 출시 기준"},
-    {"id": "superpowers", "status": "disabled", "why": "오케스트레이터와 작업 절차 자리 경쟁"}
-  ],
-  "decisions": [{"finding": "superpowers vs harnesskit (slot)", "choice": "이 프로젝트에서 superpowers 끔"}],
-  "harness": {"orchestrator": "<오케스트레이터 스킬명>", "agents": ["..."], "skills": ["..."]}
-}
-```
-
-**8. 보고**: 다음 순서로 짧게 보고한다.
-- 만든 것: 에이전트·스킬·오케스트레이터, 그리고 호출하는 말
-- 연결한 외부 스킬, 끈 도구와 이유
-- 남은 충돌과 외부 전송 도구
-- 측정 방법: `npx ccusage@20.0.49 --offline`, `claude plugin details <name>`
-- 다음 단계: 실제 작업 한 건 실행 → 피드백 → `하네스 회고`
+| 단계 | 할 일 | 읽을 문서 |
+|---|---|---|
+| 0 상태 확인 | lock이 있으면 `hklock.py status --project .` | — |
+| 1 스캔 | `hkscan.py env --project . --out _workspace/harnesskit/scan.json --summary` 요약만 읽음 | — |
+| 2 분기 | 단발 작업이면 하네스 없이 · 기존 하네스면 확장·유지보수 | 기존 하네스: `build-maintain.md` |
+| 3 충돌 체크 | `hkcheck.py --env _workspace/harnesskit/scan.json --md` | review 항목: `conflict-rules.md` |
+| 4 도구 선별 | 설치됨 → 카탈로그 → 내 카탈로그 → 웹 | `kit-build.md` |
+| 5 설치 | 보안 점검 + 충돌 체크 → 승인 → 프로젝트 범위 | `install.md` |
+| 6 설계·생성 | 설계안 승인 후에 파일 생성 | `mode-build.md` |
+| 7 기록 | `hklock.py write` | `install.md` |
+| 8 보고 | 만든 것 · 연결한 것 · 남은 충돌 | `kit-build.md` |
 
 ## 내장 기능과의 역할 분담
 

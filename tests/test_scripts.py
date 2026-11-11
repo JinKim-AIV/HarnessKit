@@ -84,6 +84,14 @@ class ScanTests(unittest.TestCase):
     def tearDown(self):
         self.e.cleanup()
 
+    def test_summary_is_short_and_full_json_still_written(self):
+        skill(os.path.join(self.e.claude, "skills", "my-review"), "my-review", "review pull requests " * 40)
+        out = os.path.join(self.e.root, "scan.json")
+        text = self.e.run("hkscan.py", "env", "--project", self.e.project, "--out", out, "--summary")
+        self.assertIn("my-review", text)
+        self.assertLess(len(text.encode("utf-8")), 2000)
+        self.assertGreater(len(json.loads(read(out))["claude"]["items"][0]["skills"][0]["description"]), 500)
+
     def test_repo_scan_estimates_bootstrap_injection(self):
         repo = os.path.join(self.e.root, "repo")
         fake_bootstrap_plugin(repo)
@@ -371,6 +379,24 @@ class PersonalCatalogTests(unittest.TestCase):
         bad = self.cat("add", "--file", self.entry(layer="nope", conflicts=[{"with": "a", "type": "weird"}]), check=False)
         self.assertNotEqual(bad.returncode, 0)
         self.assertIn("layer", bad.stderr)
+
+
+class ReadBudgetTests(unittest.TestCase):
+    """What the agent reads is cost too. Keep the always-read and per-step documents small."""
+    LIMITS = {"SKILL.md": 1600, "references/kit-build.md": 1500, "references/install.md": 1200,
+              "references/mode-build.md": 10800, "references/build-maintain.md": 1000,
+              "references/mode-check.md": 900, "references/mode-save.md": 1000, "references/mode-sync.md": 800}
+
+    def test_documents_stay_within_budget(self):
+        sys.path.insert(0, SCRIPTS)
+        import hkscan
+        over = {}
+        for rel, limit in self.LIMITS.items():
+            with open(os.path.join(ROOT, "skills", "harnesskit", rel), encoding="utf-8") as f:
+                tokens = hkscan.approx_tokens(f.read())
+            if tokens > limit:
+                over[rel] = (tokens, limit)
+        self.assertEqual(over, {}, "추정 토큰이 상한을 넘었다")
 
 
 class CatalogTests(unittest.TestCase):

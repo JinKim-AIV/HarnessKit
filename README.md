@@ -172,6 +172,9 @@ HarnessKit/
 │       ├── conflict-rules.md        충돌 판정 기준
 │       ├── mode-build.md            하네스 설계 절차 (Harness v2 파생, [HK] 표시)
 │       ├── mode-evolve.md           회고 절차 (Harness v2 파생, [HK] 표시)
+│       ├── kit-build.md             build 절차 자세히 (SKILL.md는 요약만)
+│       ├── install.md               설치 전 점검·설치 범위·lock 기록 (설치할 때만 읽음)
+│       ├── build-maintain.md        기존 하네스 확장·유지보수 (Harness v2 파생, 있을 때만 읽음)
 │       ├── mode-check.md, mode-sync.md, mode-save.md, codex.md, preflight.md
 │       ├── roles/ui-ux-reviewer.md  디자인 QA 리뷰어 역할 템플릿
 │       └── harness/                 Harness v2 참조 문서 원본

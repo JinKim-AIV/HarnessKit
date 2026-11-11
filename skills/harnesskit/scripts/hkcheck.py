@@ -305,6 +305,8 @@ def to_markdown(comps, findings):
     lines = ["| # | 심각도 | 유형 | 대상 | 내용 | 해결안 |", "|---|---|---|---|---|---|"]
     for i, f in enumerate(findings, 1):
         detail = f["detail"].replace("|", "\\|")
+        if f["severity"] == "review" and f.get("evidence"):
+            detail += " 근거: " + ", ".join(f["evidence"])
         lines.append(f"| {i} | {f['severity']} | {f['type']} | {'<br>'.join(f['items'])} | {detail} | {f['resolve']} |")
     head = (f"검사 대상: 설치됨 {sum(1 for c in comps if c['source'] == 'installed')}개, "
             f"후보 {sum(1 for c in comps if c['source'] == 'candidate')}개 · 발견 {len(findings)}건")

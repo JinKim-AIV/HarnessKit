@@ -479,6 +479,53 @@ def scan_repo(path):
     return {"mode": "repo", "path": path, "license_head": lic, "items": items}
 
 
+# ---------------------------------------------------------------- summary
+
+def item_tokens(it):
+    t = sum(s.get("always_on_tokens", 0) for s in it.get("skills", []) if not s.get("disable_model_invocation"))
+    t += sum(a.get("always_on_tokens", 0) for a in it.get("agents", []))
+    t += sum((h.get("injects_estimate") or {}).get("tokens", 0) for h in it.get("hooks", []))
+    return t
+
+
+def summarize(result):
+    """A short text view for the agent; the full JSON stays in the file for scripts."""
+    lines = []
+    if result.get("mode") == "repo":
+        lines.append(f"후보 저장소: {result['path']} | 라이선스: {(result.get('license_head') or '없음')[:40]}")
+        for it in result["items"]:
+            hooks = ", ".join(sorted({h["event"] for h in it.get("hooks", [])})) or "없음"
+            lines.append(f"- {it['id']} · 스킬 {len(it.get('skills', []))} · 에이전트 {len(it.get('agents', []))}"
+                         f" · 훅 {hooks} · MCP {len(it.get('mcp', []))} · 상시 약 {item_tokens(it)}토큰")
+        return "\n".join(lines)
+    c, x = result["claude"], result["codex"]
+    lines.append(f"Claude Code {'있음' if c['present'] else '없음'} · Codex {'있음' if x['present'] else '없음'}")
+    synced = [it["name"] for it in c["items"] if it.get("scope") == "synced"]
+    for it in c["items"]:
+        if it.get("scope") == "synced":
+            continue
+        state = " (꺼짐)" if it.get("enabled") is False else ""
+        extra = ""
+        if it["kind"] == "plugin":
+            extra = f" · 스킬 {len(it.get('skills', []))} · 에이전트 {len(it.get('agents', []))} · 훅 {len(it.get('hooks', []))}"
+        lines.append(f"- {it['kind']} {it.get('plugin_id') or it['name']} [{it.get('scope', '')}]{state}{extra}")
+    if synced:
+        lines.append(f"- 동기화된 스킬 {len(synced)}개: {', '.join(synced)}")
+    for it in x["items"]:
+        lines.append(f"- codex {it['kind']} {it['name']} [{it.get('scope', '')}]")
+    h = result["harness"]
+    if h["exists"]:
+        lines.append(f"기존 하네스: Claude 에이전트 {len(h['claude']['agents'])} · 스킬 {len(h['claude']['skills'])}"
+                     f" / Codex 에이전트 {len(h['codex']['agents'])} · 스킬 {len(h['codex']['skills'])}"
+                     f" · lock {'있음' if h['lock'] else '없음'}")
+    else:
+        lines.append("기존 하네스: 없음")
+    top = result["always_on"]["by_item"][:3]
+    if top:
+        lines.append("상시 비용 상위: " + " · ".join(f"{r['id'].split(':', 1)[-1]} 약 {r['approx_tokens']}토큰" for r in top) + " (추정)")
+    return "\n".join(lines)
+
+
 # ---------------------------------------------------------------- main
 
 def main(argv=None):
@@ -487,9 +534,11 @@ def main(argv=None):
     e = sub.add_parser("env", help="scan the installed environment")
     e.add_argument("--project", default=os.getcwd())
     e.add_argument("--out")
+    e.add_argument("--summary", action="store_true", help="print a short summary (full JSON goes to --out)")
     r = sub.add_parser("repo", help="scan a candidate repository")
     r.add_argument("path")
     r.add_argument("--out")
+    r.add_argument("--summary", action="store_true", help="print a short summary (full JSON goes to --out)")
     a = ap.parse_args(argv)
     result = scan_env(a.project) if a.cmd == "env" else scan_repo(a.path)
     text = json.dumps(result, ensure_ascii=False, indent=1)
@@ -497,8 +546,11 @@ def main(argv=None):
         os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
         with open(a.out, "w", encoding="utf-8") as f:
             f.write(text)
-        print(a.out)
-    else:
+        if not a.summary:
+            print(a.out)
+    if a.summary:
+        print(summarize(result))
+    elif not a.out:
         sys.stdout.write(text + "\n")
 
 

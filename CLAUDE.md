@@ -11,4 +11,5 @@ HarnessKit 스킬의 원본 저장소다. 사용자가 이 저장소에서 Harne
 - 카탈로그의 `npx`·`uvx` 설치 명령은 버전을 고정한다. 고정하지 않으면 원 저장소가 털렸을 때 악성 업데이트가 그대로 실행된다.
 - 키트 자신은 SkillSpector 자체 점검에서 남은 탐지가 0건이어야 한다(`tests`의 SelfInspectTests). 허용할 항목은 `skills/harnesskit/.skillspector-baseline.yaml`에 근거와 함께 적는다.
 - 늘 드는 비용은 스킬 설명문 하나로 유지한다. 훅을 추가하지 않는다.
+- 에이전트가 읽는 분량도 비용이다. SKILL.md는 요약만 두고(약 1,600토큰 이하) 세부는 그 단계에서만 읽는 references 문서로 뺀다. 스크립트 출력은 짧은 요약을 기본으로 하고 전체 JSON은 파일로 남긴다. 상한은 tests의 ReadBudgetTests가 지킨다.
 - 사용자에게 보이는 문구와 커밋 메시지는 한국어로 쓴다.

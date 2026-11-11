@@ -4,18 +4,18 @@
 
 ## 절차
 
-1. **스캔**: `hkscan.py env --project . --out _workspace/harnesskit/scan.json`
+1. **스캔**: `hkscan.py env --project . --out _workspace/harnesskit/scan.json --summary` (요약만 읽고 JSON은 스크립트에 넘긴다)
 
 2. **점검 대상 정하기**
-   - 카탈로그에 있는 도구: `--candidate <id>` 로 넘긴다. id는 `references/catalog.json` 참고.
+   - 카탈로그에 있는 도구: `--candidate <id>` 로 넘긴다. id는 `hkcatalog.py find --text <이름>`으로 찾는다(카탈로그 파일을 통째로 읽지 않는다).
    - GitHub 주소나 로컬 경로:
      1. 새로 만든 빈 임시 폴더에 `git clone --depth 1 <url>` 한다. 받은 저장소 안의 스크립트, 설치 명령, 빌드 도구는 **실행하지 않는다.**
-     2. `hkscan.py repo <폴더> --out _workspace/harnesskit/cand-<이름>.json` → `--candidate-scan`으로 넘긴다.
+     2. `hkscan.py repo <폴더> --out _workspace/harnesskit/cand-<이름>.json --summary` → JSON 파일을 `--candidate-scan`으로 넘긴다.
      3. README와 PRIVACY·SECURITY 문서에서 telemetry, analytics, 외부 API 호출, 계정 요구를 찾아 적는다. 라이선스는 `license_head`로 확인한다.
-     4. **보안 점검(필수)**: `hkinspect.py <폴더> [--plugin <이름>]`. 판정(SAFE / CAUTION / DO_NOT_INSTALL)과 걸린 항목(파일:줄)을 결과에 넣는다. SkillSpector가 없으면(`missing`) 설치 명령을 보여 주고, 점검 전에는 "설치 권장" 결론을 내지 않는다.
+     4. **보안 점검(필수)**: `hkinspect.py <폴더> [--plugin <이름>]`. 판정 처리는 `install.md`와 같다. 판정(SAFE / CAUTION / DO_NOT_INSTALL)과 걸린 항목(파일:줄)을 결과에 넣는다. SkillSpector가 없으면(`missing`) 설치 명령을 보여 주고, 점검 전에는 "설치 권장" 결론을 내지 않는다.
    - 대상이 없으면 현재 설치된 것끼리 점검한다.
 
-3. **판정**: `hkcheck.py --env _workspace/harnesskit/scan.json [--candidate ...] [--candidate-scan ...] --out _workspace/harnesskit/check.json`
+3. **판정**: `hkcheck.py --env _workspace/harnesskit/scan.json [--candidate ...] [--candidate-scan ...] --md` (표만 읽는다)
    - catalog, rule 항목은 그대로 보고한다.
    - `review` 항목은 `references/conflict-rules.md` 2절 절차로 원문을 읽고 판정한다.
 

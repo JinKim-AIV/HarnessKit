@@ -6,16 +6,16 @@
 
 1. **읽기**: 프로젝트 루트의 `harnesskit.lock`을 읽는다. `runtimes`, `tools`(use/disabled/skipped와 이유), `decisions`, `harness`를 확인한다.
 
-2. **비교**: `hkscan.py env --project . --out _workspace/harnesskit/scan.json` 결과와 lock을 대조해 세 목록을 만든다.
+2. **비교**: `hkscan.py env --project . --out _workspace/harnesskit/scan.json --summary`의 요약과 lock을 대조해 세 목록을 만든다.
    - 설치할 것: lock에서 `use`인데 이 PC에 없는 도구. lock의 `scope`(project / local / user)대로 설치한다. `project` 범위 스킬 폴더와 설정은 저장소에 이미 들어 있을 수 있으니 먼저 확인한다.
    - 끌 것: lock에서 `disabled`인데 이 PC에서 켜져 있는 도구
    - 다른 것: 이 PC에만 있는 도구 (끄라고 하지 않는다. 충돌만 본다)
 
 3. **런타임 맞추기**: 이 PC의 런타임이 lock과 다르면(예: lock은 claude, 지금은 Codex) 카탈로그의 해당 런타임 설치 명령을 쓰고, 하네스 파일은 `hklock.py mirror --to codex`(또는 `--to claude`)로 만든다. 카탈로그에 그 런타임 명령이 없으면 그 도구는 건너뛰고 보고한다.
 
-4. **보안 점검과 충돌 체크**: 설치할 도구마다 `hkinspect.py`로 보안 점검을 한다(필수, `SKILL.md` 5단계 판정 규칙). 이어서 `--candidate`로 `hkcheck.py`를 돌린다. 이 PC에만 있는 도구와 부딪히는 항목은 따로 보여 준다.
+4. **보안 점검과 충돌 체크**: 설치할 도구마다 `hkinspect.py`로 보안 점검을 한다(필수, `install.md`의 판정 규칙). 이어서 `--candidate`로 `hkcheck.py`를 돌린다. 이 PC에만 있는 도구와 부딪히는 항목은 따로 보여 준다.
 
-5. **승인 후 적용**: 계획을 표로 보여 주고 승인받은 뒤 설치·끄기를 한다.
+5. **승인 후 적용**: 계획을 표로 보여 주고 승인받은 뒤 `install.md`대로 설치·끄기를 한다.
    - `/plugin ...` 같은 슬래시 명령은 사용자에게 입력을 부탁한다.
    - `claude plugin install`, `npx`, `uv tool install` 같은 셸 명령은 승인 후 실행한다.
    - `verified: survey` 도구는 실행 전에 원 저장소 README로 명령을 한 번 확인한다.

@@ -9,7 +9,7 @@
    - 이름, SNS 글, 캡처만 있으면 웹에서 찾는다. 같은 이름의 포크·사본이 여럿이면 원작자 저장소(가장 오래되고 활발한 쪽, 공식 조직)를 고르고, 확신이 없으면 후보 2~3개를 보여 주고 고르게 한다.
    - 이미 카탈로그에 있으면(`hkcatalog.py find --text <이름>`) 그 항목을 보여 주고 끝낸다.
 2. **받기**: 새로 만든 빈 임시 폴더에 `git clone --depth 1 <저장소>`. 받은 코드는 실행하지 않는다.
-3. **살펴보기**: `hkscan.py repo <폴더>`로 스킬·훅·에이전트·상시 비용을 보고, README·LICENSE·plugin/marketplace 설정에서 설치 방법(Claude Code, Codex), 라이선스, 외부 전송을 확인한다. 라이선스가 없으면 저장은 하되 `layer: excluded`로 두고 이유를 적는다.
+3. **살펴보기**: `hkscan.py repo <폴더> --summary`로 스킬·훅·에이전트·상시 비용을 보고, README·LICENSE·plugin/marketplace 설정에서 설치 방법(Claude Code, Codex), 라이선스, 외부 전송을 확인한다. 라이선스가 없으면 저장은 하되 `layer: excluded`로 두고 이유를 적는다.
 4. **보안 점검**: `hkinspect.py <폴더>`. 판정을 `security`에 적는다. SkillSpector가 없으면 "점검 안 됨 — 설치 전에 반드시 점검"이라고 적고 저장은 한다. 설치할 때 다시 점검한다.
 5. **충돌 확인**: `hkcatalog.py find --role <역할>`과 `--text <키워드>`로 같은 일을 하는 항목을 찾고, 설명문과 지시를 비교해 기능 충돌을 `conflicts`에 적는다(`conflict-rules.md` 유형, 원문 인용). 확인할 수 없는 충돌은 적지 않는다.
 6. **항목 작성**: `_workspace/harnesskit/save-<id>.json`에 카탈로그 형식으로 쓴다. 필수 필드는 `id`, `name`, `repo`, `license`, `layer`, `use_when`, `skip_when`, `install`, `detect`, `always_on`, `external_data`, `conflicts`, `verified`다. 저장소 파일을 직접 읽었으면 `verified: "direct"`로 둔다. 사용자가 말한 출처나 메모는 `memo`에 남긴다(예: "인스타에서 봄, 발표 자료 만들 때 써 보기").
