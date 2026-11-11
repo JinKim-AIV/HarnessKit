@@ -174,6 +174,16 @@ class CheckTests(unittest.TestCase):
         self.e.run("hkscan.py", "env", "--project", self.e.project, "--out", scan)
         self.assertTrue(os.path.isfile(out) and os.path.isfile(scan))
 
+    def test_bundled_skill_is_one_tool(self):
+        # A synced frontend-design skill must not also count as the example-skills bundle.
+        skill(os.path.join(self.e.claude, "skills", "synced", "b", "frontend-design"), "frontend-design", "Create frontend interfaces")
+        skill(os.path.join(self.e.claude, "skills", "synced", "b", "skill-creator"), "skill-creator", "Create skills")
+        data = self.check()
+        comps = {c["label"]: c["catalog_ids"] for c in data["components"]}
+        self.assertEqual(comps["frontend-design"], ["frontend-design"])
+        self.assertEqual(comps["skill-creator"], ["skill-creator"])
+        self.assertFalse([f for f in data["findings"] if "example-skills" in " ".join(f["items"])])
+
     def test_unknown_catalog_id_fails(self):
         with self.assertRaises(subprocess.CalledProcessError):
             self.check("--candidate", "no-such-tool")

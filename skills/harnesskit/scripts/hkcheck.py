@@ -41,7 +41,7 @@ INTENTS = {
     "code-review": r"\breview\w*|코드 리뷰|코드 검토",
     "test": r"\btests?\b|\btesting\b|\btdd\b|테스트",
     "debug": r"\bdebug\w*|\bbugs?\b|test failure|unexpected behavior|디버그|버그|오류 원인",
-    "plan": r"\bplan\w*|brainstorm\w*|\bdesign\b|\bspec\b|계획|설계",
+    "plan": r"\bplan\w*|brainstorm\w*|\bspec\b|계획 수립|기획",
     "verify": r"verification-before|before claiming|claiming (?:work|that)|완료 전 검증",
     "office-docs": r"\bdocx\b|\bxlsx\b|\bpptx\b|\bpdf\b|\bword document|\bexcel\b|powerpoint|엑셀|워드|파워포인트",
     "hwp": r"\bhwpx?\b|한글 문서|아래아한글",
@@ -71,6 +71,7 @@ def component_from_item(item, source, runtime="claude"):
         "label": item.get("plugin_id") or item.get("name") or item["id"],
         "kind": item.get("kind"),
         "source": source,
+        "scope": item.get("scope"),
         "runtime": item.get("runtime", runtime),
         "plugin_name": item.get("name") if item.get("kind") == "plugin" else None,
         "skills": skills,
@@ -99,6 +100,16 @@ def match_catalog(comp, catalog):
                 or names["mcp"] & {x.lower() for x in det.get("mcp", [])}
                 or names["output_styles"] & {x.lower() for x in det.get("output_styles", [])}):
             hits.append(e["id"])
+    if comp["kind"] != "plugin" and len(hits) > 1:
+        # One skill can match both its own entry and a bundle that also ships it
+        # (frontend-design vs example-skills). It is one tool, not two.
+        exact = [h for h in hits if h.lower() in names["skills"] | names["mcp"] | names["output_styles"]]
+        if exact:
+            return exact
+        by_id = {e["id"]: e for e in catalog["entries"]}
+        solo = [h for h in hits if not (by_id[h].get("detect") or {}).get("plugins")]
+        if solo:
+            return solo
     return hits
 
 
@@ -264,6 +275,9 @@ def check(env, comps, catalog, max_review=8):
     for (c1, s1, i1), (c2, s2, i2) in itertools.combinations(pool, 2):
         # Skills only compete inside one runtime; same-name pairs are reported above.
         if c1["key"] == c2["key"] or c1["runtime"] != c2["runtime"] or s1["name"].lower() == s2["name"].lower():
+            continue
+        # Skills synced together from claude.ai ship as one coordinated set.
+        if c1.get("scope") == c2.get("scope") == "synced":
             continue
         pair = tuple(sorted((c1["catalog_ids"][:1] or [c1["key"]])[0:1] + (c2["catalog_ids"][:1] or [c2["key"]])[0:1]))
         if pair in seen:
