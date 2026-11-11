@@ -45,7 +45,7 @@ description: "HarnessKit(킷, kit). 프로젝트나 업무에 맞는 AI 하네�
 
 **3. 현재 환경 충돌 체크**: `hkcheck.py --env _workspace/harnesskit/scan.json --out _workspace/harnesskit/check.json`. `review` 항목은 `references/conflict-rules.md`로 판정한다. high/medium 항목은 해결안을 고르게 하고 적용한다. 고른 결과는 7단계 lock의 `decisions`에 남긴다.
 
-**4. 업무 분석과 도구 선별**: `mode-build.md` 1단계로 업무를 분석해 필요한 역량을 정한다. `references/catalog.json`에서 `role`·`capabilities`가 맞는 후보를 고르고 `use_when`, `skip_when`, `requires`, `external_data`를 보고 걸러낸다. 같은 역할 도구가 이미 설치돼 있으면 그것을 쓴다. 카탈로그에 없는 도구를 원하면 `mode-check.md`의 저장소 점검을 거친다. 후보를 이유와 함께 표로 보여 준다.
+**4. 업무 분석과 도구 선별**: `mode-build.md` 1단계로 업무를 분석해 필요한 역량을 정한다. `references/catalog.json`에서 `role`·`capabilities`가 맞는 후보를 고르고 `use_when`, `skip_when`, `requires`, `external_data`를 보고 걸러낸다. 같은 역할 도구가 이미 설치돼 있으면 그것을 쓴다. 산출물에 사람이 읽는 한국어 글이 있으면 한국어 윤문 도구(`role: korean-writing`)를 기본 후보로 올린다. 카탈로그에 없는 도구를 원하면 `mode-check.md`의 저장소 점검을 거친다. 후보를 이유와 함께 표로 보여 준다.
 
 **5. 후보 충돌 체크와 설치**: `hkcheck.py --env ... --candidate <id> ...`로 설치 전에 점검하고 보고한다. 승인받은 도구만 카탈로그의 해당 런타임 설치 명령으로 설치한다.
 - `/plugin ...` 같은 슬래시 명령은 사용자에게 입력을 부탁한다. 셸 명령은 승인 후 실행한다.
