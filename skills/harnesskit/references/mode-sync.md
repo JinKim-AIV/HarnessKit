@@ -7,7 +7,7 @@
 1. **읽기**: 프로젝트 루트의 `harnesskit.lock`을 읽는다. `runtimes`, `tools`(use/disabled/skipped와 이유), `decisions`, `harness`를 확인한다.
 
 2. **비교**: `hkscan.py env --project . --out _workspace/harnesskit/scan.json` 결과와 lock을 대조해 세 목록을 만든다.
-   - 설치할 것: lock에서 `use`인데 이 PC에 없는 도구
+   - 설치할 것: lock에서 `use`인데 이 PC에 없는 도구. lock의 `scope`(project / local / user)대로 설치한다. `project` 범위 스킬 폴더와 설정은 저장소에 이미 들어 있을 수 있으니 먼저 확인한다.
    - 끌 것: lock에서 `disabled`인데 이 PC에서 켜져 있는 도구
    - 다른 것: 이 PC에만 있는 도구 (끄라고 하지 않는다. 충돌만 본다)
 

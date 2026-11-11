@@ -1,6 +1,6 @@
 {
   "version": "2026-11-11d",
-  "about": "HarnessKit 큐레이션 카탈로그. verified=direct는 저장소 파일을 직접 읽고 작성한 항목, verified=survey는 조사 과정에서 저장소 문서를 확인한 항목이다. survey 항목의 설치 명령은 쓰기 전에 원 저장소 README로 한 번 더 확인한다. 원문 인용은 영어 그대로 둔다.",
+  "about": "HarnessKit 큐레이션 카탈로그. install 명령은 대부분 전역 기준으로 적혀 있다. 실제 설치는 SKILL.md 5단계 표대로 기본 프로젝트 범위로 바꿔 실행한다. verified=direct는 저장소 파일을 직접 읽고 작성한 항목, verified=survey는 조사 과정에서 저장소 문서를 확인한 항목이다. survey 항목의 설치 명령은 쓰기 전에 원 저장소 README로 한 번 더 확인한다. 원문 인용은 영어 그대로 둔다.",
   "conflict_types": {
     "trigger": "같은 요청에 둘 이상이 반응해, 실행할 때마다 어느 쪽이 불릴지 달라진다.",
     "contradiction": "같은 상황에 서로 반대로 지시한다.",
