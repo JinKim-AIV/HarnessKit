@@ -322,6 +322,7 @@ def main(argv=None):
             "summary": {s: sum(1 for f in findings if f["severity"] == s) for s in SEVERITY_ORDER},
         }, ensure_ascii=False, indent=1)
     if a.out:
+        os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
         with open(a.out, "w", encoding="utf-8") as f:
             f.write(text)
         print(a.out)

@@ -163,6 +163,13 @@ class CheckTests(unittest.TestCase):
         self.assertEqual(len(review), 1)
         self.assertEqual(review[0]["severity"], "review")
 
+    def test_out_creates_missing_dirs(self):
+        out = os.path.join(self.e.project, "_workspace", "harnesskit", "check.json")
+        self.e.run("hkcheck.py", "--project", self.e.project, "--out", out)
+        scan = os.path.join(self.e.project, "_workspace", "harnesskit", "scan.json")
+        self.e.run("hkscan.py", "env", "--project", self.e.project, "--out", scan)
+        self.assertTrue(os.path.isfile(out) and os.path.isfile(scan))
+
     def test_unknown_catalog_id_fails(self):
         with self.assertRaises(subprocess.CalledProcessError):
             self.check("--candidate", "no-such-tool")

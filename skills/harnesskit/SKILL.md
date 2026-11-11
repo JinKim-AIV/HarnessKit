@@ -18,7 +18,7 @@ description: "HarnessKit(킷, kit). 프로젝트나 업무에 맞는 AI 하네�
 
 ## 준비
 
-- **스크립트 위치**: 이 스킬 폴더의 `scripts/`. 아래에서 `hkscan.py`처럼 줄여 쓴 것은 모두 그 폴더의 파일이다. Python 3.8 이상이 필요하다(`python3`, Windows는 `python` 또는 `py -3`). 받은 저장소 안의 코드는 실행하지 않는다.
+- **스크립트 위치**: 이 스킬 폴더의 `scripts/`. 보통 Claude Code는 `~/.claude/skills/harnesskit/scripts/`, Codex는 `~/.codex/skills/harnesskit/scripts/`다. 아래에서 `hkscan.py`처럼 줄여 쓴 것은 모두 그 폴더의 파일이다. Python 3.8 이상이 필요하다(`python3`, Windows는 `python` 또는 `py -3`). 받은 저장소 안의 코드는 실행하지 않는다.
 - **런타임**: 지금 대화를 실행하는 도구가 Claude Code면 `claude`, Codex면 `codex`. 사용자가 두 도구를 모두 쓴다고 하면 `both`.
 - **질문 방법**: Claude Code에서 `AskUserQuestion` 도구가 있으면 그것을, 없거나 Codex면 번호 목록으로 묻는다. 추천안을 첫 번째에 둔다.
 - **중간 파일**: 프로젝트의 `_workspace/harnesskit/`에 둔다.

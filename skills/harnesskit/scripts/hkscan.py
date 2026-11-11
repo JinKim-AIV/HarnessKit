@@ -485,6 +485,7 @@ def main(argv=None):
     result = scan_env(a.project) if a.cmd == "env" else scan_repo(a.path)
     text = json.dumps(result, ensure_ascii=False, indent=1)
     if a.out:
+        os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
         with open(a.out, "w", encoding="utf-8") as f:
             f.write(text)
         print(a.out)
