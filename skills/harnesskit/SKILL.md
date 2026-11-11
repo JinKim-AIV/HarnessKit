@@ -1,6 +1,6 @@
 ---
 name: harnesskit
-description: "HarnessKit(킷, kit). 프로젝트나 업무에 맞는 AI 하네스(에이전트·스킬·오케스트레이터)를 만든다. 만들기 전에 설치된 스킬·플러그인·훅·MCP를 진단하고, 서로 기능이 부딪히는 도구를 설치 전에 찾아 정리하고, 검증된 오픈소스 스킬을 연결한다. Claude Code와 Codex 모두 지원. '킷으로 하네스 만들어줘', 'kit로 이 프로젝트 하네스 구성해줘', '하네스 만들어줘', '이 스킬 깔아도 돼?', '스킬 충돌 체크', '하네스 회고', 'harnesskit.lock 대로 맞춰줘', '쓸만한 스킬 추천', '이 스킬 카탈로그에 넣어줘' 같은 요청에 쓴다. 하네스와 무관한 단순 질문에는 쓰지 않는다."
+description: "HarnessKit(킷, kit). 프로젝트나 업무에 맞는 AI 하네스(에이전트·스킬·오케스트레이터)를 만든다. 만들기 전에 설치된 스킬·플러그인·훅·MCP를 진단하고, 서로 기능이 부딪히는 도구를 설치 전에 찾아 정리하고, 검증된 오픈소스 스킬을 연결한다. Claude Code와 Codex 모두 지원. '킷으로 하네스 만들어줘', 'kit로 이 프로젝트 하네스 구성해줘', '하네스 만들어줘', '이 스킬 깔아도 돼?', '스킬 충돌 체크', '하네스 회고', '하네스가 느려·고쳐줘', 'harnesskit.lock 대로 맞춰줘', '쓸만한 스킬 추천', '이 스킬 카탈로그에 넣어줘' 같은 요청에 쓴다. 하네스와 무관한 단순 질문에는 쓰지 않는다."
 ---
 
 # HarnessKit
@@ -31,7 +31,7 @@ description: "HarnessKit(킷, kit). 프로젝트나 업무에 맞는 AI 하네�
 |---|---|---|
 | 하네스 만들어줘 / 구성해줘 / 확장해줘 | build | 아래 절차 + `references/mode-build.md` |
 | 이 스킬 깔아도 돼? / 충돌 체크 / 이 저장소 괜찮아? | check | `references/mode-check.md` |
-| 하네스 회고 / 피드백 반영 / 진화 | evolve | `references/mode-evolve.md` |
+| 하네스 회고 / 피드백 반영 / 진화 / 하네스가 느리다·토큰을 많이 쓴다·같은 실수를 한다 | evolve | `references/mode-evolve.md` |
 | lock대로 맞춰줘 / 동료 구성 재현 | sync | `references/mode-sync.md` |
 | 이거 카탈로그에 넣어줘 / 나중에 쓰게 저장 / 내 카탈로그 보여줘 | save | `references/mode-save.md` (설치하지 않고 보관만) |
 | 쓸만한 스킬 / 카탈로그 보여줘 | catalog | `hkcatalog.py roles`로 역할별 목록을 보여 주고, 궁금한 항목은 `hkcatalog.py show <id>`. `verified`와 외부 전송 여부를 함께 보여 준다 |
