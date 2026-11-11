@@ -1,0 +1,389 @@
+{
+  "version": "2026-11-11",
+  "about": "HarnessKit curated catalog. verified=direct means the repository files were read for this entry; verified=survey means a research pass read the repository docs but install commands should be re-checked once before use.",
+  "conflict_types": {
+    "trigger": "Two items fire on the same request, so which one runs changes from run to run.",
+    "contradiction": "Two items give opposite instructions for the same situation.",
+    "slot": "Two items compete for a slot only one can hold (output style, session-start bootstrap, process owner).",
+    "role": "Two items do the same job (two memory systems, two HWP readers), doubling cost and splitting state.",
+    "side-effect": "Two items change the same setting, file, or network path."
+  },
+  "entries": [
+    {
+      "id": "harnesskit",
+      "name": "HarnessKit",
+      "layer": "kit",
+      "slot": "harness-builder",
+      "capabilities": ["harness-build", "conflict-check", "catalog", "harness-evolve"],
+      "detect": {"skills": ["harnesskit"]},
+      "always_on": "Skill description only (one skill). No hooks.",
+      "external_data": "None.",
+      "license": "Apache-2.0",
+      "conflicts": [
+        {"with": "harness", "type": "trigger",
+         "detail": "Both respond to requests such as '하네스 구성해줘' and '하네스 회고', so either may run.",
+         "resolve": "Disable the original harness plugin while using HarnessKit; HarnessKit already carries its procedure (Apache-2.0 fork)."}
+      ],
+      "verified": "direct"
+    },
+    {
+      "id": "harness",
+      "name": "Harness v2 (revfactory)",
+      "repo": "https://github.com/revfactory/harness",
+      "license": "Apache-2.0",
+      "layer": "excluded",
+      "slot": "harness-builder",
+      "capabilities": ["harness-build", "harness-evolve"],
+      "use_when": ["You want the upstream harness without HarnessKit's inventory and conflict check."],
+      "skip_when": ["HarnessKit is installed; it already includes this procedure."],
+      "install": {"claude": ["/plugin marketplace add revfactory/harness", "/plugin install harness@harness-marketplace"]},
+      "detect": {"plugins": ["harness"], "skills": ["harness", "evolve"]},
+      "always_on": "Two skill descriptions. No hooks.",
+      "external_data": "None.",
+      "conflicts": [],
+      "verified": "direct"
+    },
+    {
+      "id": "superpowers",
+      "name": "Superpowers",
+      "repo": "https://github.com/obra/superpowers",
+      "license": "MIT",
+      "layer": "always-on",
+      "slot": "process",
+      "capabilities": ["brainstorming", "planning", "tdd", "debugging", "code-review", "verification"],
+      "use_when": ["Solo development without a HarnessKit harness, where you want a strict brainstorm -> plan -> TDD -> verify process."],
+      "skip_when": ["The project has a HarnessKit/Harness orchestrator that already owns the work process.", "Mostly non-code work (reports, documents)."],
+      "install": {
+        "claude": ["/plugin marketplace add obra/superpowers", "/plugin install superpowers@superpowers-dev"],
+        "codex": ["See the repository README for the Codex setup (AGENTS.md based)."]
+      },
+      "detect": {"plugins": ["superpowers"], "skills": ["using-superpowers", "brainstorming"]},
+      "always_on": "SessionStart hook (startup|clear|compact) injects skills/using-superpowers/SKILL.md (~3.2k chars) into every session, plus 14 skill descriptions.",
+      "external_data": "None found.",
+      "conflicts": [
+        {"with": "attention-span", "type": "contradiction",
+         "detail": "using-superpowers: 'Invoke relevant or requested skills BEFORE any response or action' and 'announce \"Using [skill] to [purpose]\"'. Attention-kind: 'Lead with the bottom line, in one sentence. The first sentence carries the single most important takeaway'. Both claim the first line of every reply.",
+         "resolve": "Pick one, or add a precedence line: 'The first sentence is the conclusion; skill-use announcements go after it or are omitted.'"},
+        {"with": "karpathy-guidelines", "type": "contradiction",
+         "detail": "using-superpowers: 'If you think there is even a 1% chance a skill might apply ... you ABSOLUTELY MUST invoke the skill' and 'Skill check comes BEFORE clarifying questions'. Karpathy: 'If something is unclear, stop. Name what's confusing. Ask.' and 'For trivial tasks, use judgment.' They disagree on what comes first and on whether small tasks get the full process. Their brainstorming and 'Think Before Coding' parts also do the same job (role overlap).",
+         "resolve": "Let one own the pre-coding step. If both stay, add: 'For trivial tasks skip brainstorming; when unclear, ask before invoking process skills.'"},
+        {"with": "harnesskit", "type": "slot",
+         "detail": "Superpowers brainstorming says 'You MUST use this before any creative work' and its plan/execute skills define the whole work process; a HarnessKit orchestrator defines its own process and pre-work check.",
+         "resolve": "In projects with a HarnessKit harness, disable Superpowers for that project, or tell the orchestrator to delegate the process to Superpowers and drop its own pre-work check."}
+      ],
+      "verified": "direct"
+    },
+    {
+      "id": "karpathy-guidelines",
+      "name": "Karpathy Guidelines",
+      "repo": "https://github.com/multica-ai/andrej-karpathy-skills",
+      "license": "MIT (declared in plugin.json and SKILL.md; the repository has no LICENSE file)",
+      "layer": "always-on",
+      "slot": "coding-principles",
+      "capabilities": ["coding-principles", "surgical-changes", "simplicity"],
+      "use_when": ["Coding work where the AI tends to over-build, touch unrelated code, or assume silently."],
+      "skip_when": ["Non-code work."],
+      "install": {
+        "claude": ["/plugin marketplace add multica-ai/andrej-karpathy-skills", "/plugin install andrej-karpathy-skills@karpathy-skills"],
+        "codex": ["Copy skills/karpathy-guidelines to ~/.codex/skills/karpathy-guidelines"]
+      },
+      "detect": {"plugins": ["andrej-karpathy-skills"], "skills": ["karpathy-guidelines"]},
+      "always_on": "One short skill description. No hooks.",
+      "external_data": "None.",
+      "conflicts": [
+        {"with": "superpowers", "type": "contradiction", "detail": "See the superpowers entry.", "resolve": "See the superpowers entry."}
+      ],
+      "verified": "direct"
+    },
+    {
+      "id": "attention-span",
+      "name": "Attention Span (Attention-kind output style)",
+      "repo": "https://github.com/alexgreensh/attention-span",
+      "license": "AGPL-3.0 (link only; do not copy files into HarnessKit)",
+      "layer": "always-on",
+      "slot": "output-style",
+      "capabilities": ["answer-format", "conclusion-first", "brevity"],
+      "use_when": ["You want conclusion-first, shorter replies in every session."],
+      "skip_when": ["Another output style is already selected.", "You need long-form drafting as the default."],
+      "install": {
+        "claude": ["/plugin marketplace add alexgreensh/attention-span", "/plugin install attention-span@attention-span", "Then /config -> Output style -> Attention-kind"]
+      },
+      "detect": {"plugins": ["attention-span"], "output_styles": ["attention-kind"]},
+      "always_on": "When selected, the Attention-kind output style (~8.7k chars) is part of every turn's system prompt. Four skill descriptions. No hooks.",
+      "external_data": "None (PRIVACY.md: no telemetry, no network calls, no hooks).",
+      "conflicts": [
+        {"with": "superpowers", "type": "contradiction", "detail": "See the superpowers entry.", "resolve": "See the superpowers entry."}
+      ],
+      "verified": "direct"
+    },
+    {
+      "id": "im-not-ai",
+      "name": "Humanize KR (im-not-ai)",
+      "repo": "https://github.com/epoko77-ai/im-not-ai",
+      "license": "MIT",
+      "layer": "task",
+      "role": "korean-writing",
+      "capabilities": ["korean-writing", "humanize", "translationese-fix"],
+      "use_when": ["Korean reports, posts, or documents that read like AI or translated text."],
+      "skip_when": ["Fact checking (it rewrites style only).", "Non-Korean text."],
+      "install": {
+        "claude": ["/plugin marketplace add epoko77-ai/im-not-ai", "/plugin install humanize-korean@im-not-ai"],
+        "codex": ["git clone https://github.com/epoko77-ai/im-not-ai && ./install.sh --codex-only"]
+      },
+      "detect": {"plugins": ["humanize-korean"], "skills": ["humanize-korean"]},
+      "always_on": "Two model-invocable skill descriptions plus nine subagent descriptions (~3.3k chars). Six of the nine agents maintain the plugin itself (taxonomy, scholarship, metrics, release) and are rarely needed by users.",
+      "external_data": "None found.",
+      "conflicts": [],
+      "verified": "direct"
+    },
+    {
+      "id": "document-skills",
+      "name": "Anthropic document skills (docx, xlsx, pptx, pdf)",
+      "repo": "https://github.com/anthropics/skills",
+      "license": "Apache-2.0 (per skill folder)",
+      "layer": "task",
+      "role": "office-docs",
+      "capabilities": ["docx", "xlsx", "pptx", "pdf"],
+      "use_when": ["Creating or editing Word, Excel, PowerPoint, or PDF files."],
+      "skip_when": ["HWP documents (use kordoc).", "Machines where LibreOffice cannot be installed."],
+      "install": {"claude": ["/plugin marketplace add anthropics/skills", "/plugin install document-skills@anthropic-agent-skills"]},
+      "requires": ["Python", "LibreOffice", "pandoc", "Node.js"],
+      "detect": {"plugins": ["document-skills"], "skills": ["docx", "xlsx", "pptx", "pdf"]},
+      "always_on": "Four skill descriptions. No hooks.",
+      "external_data": "None.",
+      "conflicts": [],
+      "verified": "survey"
+    },
+    {
+      "id": "kordoc",
+      "name": "kordoc (HWP/HWPX)",
+      "repo": "https://github.com/chrisryugj/kordoc",
+      "license": "MIT",
+      "layer": "task",
+      "role": "hwp",
+      "capabilities": ["hwp-read", "hwpx-write", "form-fill", "diff"],
+      "use_when": ["Reading HWP/HWPX, comparing versions, filling forms, writing HWPX."],
+      "skip_when": ["The output must be .docx."],
+      "install": {"claude": ["/plugin marketplace add chrisryugj/kordoc", "/plugin install kordoc@kordoc", "Set KORDOC_OFFLINE=1 to block all network access"]},
+      "requires": ["Node.js 20+"],
+      "detect": {"plugins": ["kordoc"], "skills": ["kordoc"]},
+      "always_on": "One skill description. No hooks.",
+      "external_data": "OCR model download once (huggingface) and optional webhook; KORDOC_OFFLINE=1 blocks both.",
+      "conflicts": [
+        {"with": "k-skill", "type": "role", "detail": "k-skill's hwp skill wraps kordoc.", "resolve": "Use kordoc directly."}
+      ],
+      "verified": "survey"
+    },
+    {
+      "id": "context7",
+      "name": "Context7",
+      "repo": "https://github.com/upstash/context7",
+      "license": "MIT",
+      "layer": "task",
+      "role": "library-docs",
+      "capabilities": ["library-docs", "versioned-api-docs"],
+      "use_when": ["Writing code against a library whose API changes between versions."],
+      "skip_when": ["General research or standards documents (Context7 indexes software libraries).", "Code that must not leave the company: queries go to context7.com."],
+      "install": {
+        "claude": ["/plugin install context7@claude-plugins-official"],
+        "codex": ["npx ctx7 setup (Node.js 22.13+)"]
+      },
+      "detect": {"plugins": ["context7"], "mcp": ["context7"]},
+      "always_on": "MCP tool names only.",
+      "external_data": "Queries are sent to context7.com.",
+      "conflicts": [],
+      "verified": "direct"
+    },
+    {
+      "id": "tob-static-analysis",
+      "name": "Trail of Bits static-analysis",
+      "repo": "https://github.com/trailofbits/skills",
+      "license": "CC-BY-SA-4.0 (link only)",
+      "layer": "task",
+      "role": "static-analysis",
+      "capabilities": ["codeql", "semgrep", "sarif-triage"],
+      "use_when": ["Running CodeQL/Semgrep or triaging SARIF results."],
+      "skip_when": ["No CodeQL/Semgrep CLI available."],
+      "install": {"claude": ["/plugin marketplace add trailofbits/skills", "/plugin install static-analysis@trailofbits"]},
+      "requires": ["codeql or semgrep CLI"],
+      "detect": {"plugins": ["static-analysis"]},
+      "always_on": "Skill descriptions only.",
+      "external_data": "None.",
+      "conflicts": [],
+      "verified": "survey"
+    },
+    {
+      "id": "tob-fp-check",
+      "name": "Trail of Bits fp-check",
+      "repo": "https://github.com/trailofbits/skills",
+      "license": "CC-BY-SA-4.0 (link only)",
+      "layer": "task",
+      "role": "false-positive-triage",
+      "capabilities": ["false-positive-check"],
+      "use_when": ["A focused session judging whether static-analysis findings are false positives."],
+      "skip_when": ["Everyday sessions: it adds a Stop hook of type prompt, so an LLM judgment runs at the end of every reply."],
+      "install": {"claude": ["/plugin marketplace add trailofbits/skills", "/plugin install fp-check@trailofbits"]},
+      "detect": {"plugins": ["fp-check"]},
+      "always_on": "Stop hook (type: prompt) on every reply while enabled.",
+      "external_data": "None.",
+      "conflicts": [],
+      "verified": "survey"
+    },
+    {
+      "id": "tob-test-design",
+      "name": "Trail of Bits mutation-testing / property-based-testing",
+      "repo": "https://github.com/trailofbits/skills",
+      "license": "CC-BY-SA-4.0 (link only)",
+      "layer": "task",
+      "role": "test-design",
+      "capabilities": ["mutation-testing", "property-based-testing"],
+      "use_when": ["Checking how strong an existing test suite is, or adding property tests."],
+      "skip_when": ["The language or framework is not supported by the tools."],
+      "install": {"claude": ["/plugin marketplace add trailofbits/skills", "/plugin install mutation-testing@trailofbits", "/plugin install property-based-testing@trailofbits"]},
+      "detect": {"plugins": ["mutation-testing", "property-based-testing"]},
+      "always_on": "Skill descriptions only.",
+      "external_data": "None.",
+      "conflicts": [],
+      "verified": "survey"
+    },
+    {
+      "id": "playwright",
+      "name": "Playwright (MCP)",
+      "repo": "https://github.com/microsoft/playwright-mcp",
+      "license": "Apache-2.0",
+      "layer": "task",
+      "role": "web-automation",
+      "capabilities": ["web-e2e", "browser-automation"],
+      "use_when": ["Running or reproducing web UI end-to-end tests."],
+      "skip_when": ["Non-web targets (embedded, desktop)."],
+      "install": {
+        "claude": ["/plugin install playwright@claude-plugins-official"],
+        "codex": ["Add @playwright/mcp as an MCP server (see the repository README)"]
+      },
+      "detect": {"plugins": ["playwright"], "mcp": ["playwright"]},
+      "always_on": "MCP tool names only; page snapshots are large while in use.",
+      "external_data": "None (local browser only).",
+      "conflicts": [
+        {"with": "agent-browser", "type": "trigger",
+         "detail": "agent-browser's skill description says 'Prefer agent-browser over any built-in browser automation', so both claim browser tasks.",
+         "resolve": "Keep one browser tool."}
+      ],
+      "verified": "survey"
+    },
+    {
+      "id": "agent-browser",
+      "name": "agent-browser (Vercel)",
+      "repo": "https://github.com/vercel-labs/agent-browser",
+      "license": "Apache-2.0",
+      "layer": "excluded",
+      "role": "web-automation",
+      "capabilities": ["browser-automation"],
+      "use_when": ["You prefer a CLI browser driver and do not use Playwright."],
+      "skip_when": ["Playwright is installed."],
+      "install": {"claude": ["npm i -g agent-browser && agent-browser install", "/plugin marketplace add vercel-labs/agent-browser", "/plugin install agent-browser@agent-browser"]},
+      "detect": {"plugins": ["agent-browser"], "skills": ["agent-browser"]},
+      "always_on": "One skill description written to be chosen over other browser tools.",
+      "external_data": "Downloads Chrome; telemetry not documented (unverified).",
+      "conflicts": [
+        {"with": "playwright", "type": "trigger", "detail": "See the playwright entry.", "resolve": "Keep one browser tool."}
+      ],
+      "verified": "survey"
+    },
+    {
+      "id": "headroom",
+      "name": "Headroom (context compression proxy)",
+      "repo": "https://github.com/headroomlabs-ai/headroom",
+      "license": "Apache-2.0",
+      "layer": "optional",
+      "role": "context-compression",
+      "capabilities": ["token-compression", "memory"],
+      "use_when": ["Sessions dominated by large logs, JSON, or tool output, after confirming company policy allows a local proxy."],
+      "skip_when": ["Short prose work: little to compress.", "Company policy forbids routing API traffic through a local proxy."],
+      "install": {
+        "claude": ["uv tool install --python 3.13 \"headroom-ai[all]\"", "HEADROOM_TELEMETRY=off headroom wrap claude"],
+        "codex": ["uv tool install --python 3.13 \"headroom-ai[all]\"", "HEADROOM_TELEMETRY=off headroom wrap codex"]
+      },
+      "detect": {"plugins": ["headroom"]},
+      "always_on": "All API traffic passes through a local proxy while wrapped. Its plugin adds SessionStart and PreToolUse hooks.",
+      "external_data": "Anonymous telemetry beacon on by default (turn off with HEADROOM_TELEMETRY=off). Checks PyPI for updates.",
+      "notes": "On the Anthropic path the default cache mode skips automatic --memory injection; --mode token is needed for memory, at the cost of prompt-cache stability.",
+      "conflicts": [
+        {"with": "claude-mem", "type": "role", "detail": "Both store and re-inject session memory.", "resolve": "Use one memory system, or Claude Code's built-in auto memory."},
+        {"with": "corporate-proxy", "type": "side-effect", "detail": "Rewrites the API base URL; may clash with a company proxy or gateway.", "resolve": "Check network policy first."}
+      ],
+      "verified": "direct"
+    },
+    {
+      "id": "claude-mem",
+      "name": "claude-mem",
+      "repo": "https://github.com/thedotmack/claude-mem",
+      "license": "Apache-2.0",
+      "layer": "excluded",
+      "role": "memory",
+      "capabilities": ["memory"],
+      "use_when": [],
+      "skip_when": ["Company environments: sends recorded activity to an external LLM; analytics on by default."],
+      "install": {"claude": ["/plugin marketplace add thedotmack/claude-mem", "/plugin install claude-mem"]},
+      "detect": {"plugins": ["claude-mem"]},
+      "always_on": "Nine hooks including SessionStart (injects past records) and Pre/PostToolUse (records every tool call).",
+      "external_data": "Recorded activity sent to an external LLM provider; analytics on by default.",
+      "conflicts": [
+        {"with": "headroom", "type": "role", "detail": "See the headroom entry.", "resolve": "Use one memory system."}
+      ],
+      "verified": "survey"
+    },
+    {
+      "id": "k-skill",
+      "name": "k-skill (full install)",
+      "repo": "https://github.com/NomaDamas/k-skill",
+      "license": "MIT",
+      "layer": "excluded",
+      "role": "korean-services",
+      "capabilities": ["korean-public-services", "hwp"],
+      "use_when": ["Install only the single skill you need, not the bundle."],
+      "skip_when": ["Full install: 134 skill descriptions load in every session."],
+      "install": {"claude": ["npx --yes skills add NomaDamas/k-skill --skill <name> -g"]},
+      "detect": {"plugins": ["k-skill"]},
+      "always_on": "134 skill descriptions when fully installed.",
+      "external_data": "Many skills call public web APIs.",
+      "conflicts": [
+        {"with": "kordoc", "type": "role", "detail": "See the kordoc entry.", "resolve": "Use kordoc directly."}
+      ],
+      "verified": "survey"
+    },
+    {
+      "id": "ccusage",
+      "name": "ccusage",
+      "repo": "https://github.com/ccusage/ccusage",
+      "license": "MIT",
+      "layer": "tool",
+      "role": "measurement",
+      "capabilities": ["token-usage", "cost-report"],
+      "use_when": ["Measuring token use before and after a harness change."],
+      "skip_when": [],
+      "install": {"claude": ["npx ccusage@latest --offline"]},
+      "detect": {},
+      "always_on": "None (run on demand).",
+      "external_data": "Reads local ~/.claude/projects logs; --offline avoids the online price lookup.",
+      "conflicts": [],
+      "verified": "survey"
+    },
+    {
+      "id": "skillspector",
+      "name": "SkillSpector (NVIDIA)",
+      "repo": "https://github.com/NVIDIA/SkillSpector",
+      "license": "Apache-2.0",
+      "layer": "tool",
+      "role": "skill-security",
+      "capabilities": ["skill-security-scan"],
+      "use_when": ["Before installing a skill or plugin that is not in this catalog."],
+      "skip_when": ["LLM mode: it sends file contents to an external model; use --no-llm."],
+      "install": {"claude": ["uv tool install git+https://github.com/NVIDIA/skillspector.git", "Run with --no-llm (see the repository README for the scan command)"]},
+      "detect": {"mcp": ["skillspector"]},
+      "always_on": "None.",
+      "external_data": "--no-llm: static only, but dependency checks send package names and versions to OSV.dev.",
+      "conflicts": [],
+      "verified": "survey"
+    }
+  ]
+}
