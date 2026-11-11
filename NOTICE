@@ -1,0 +1,26 @@
+HarnessKit
+Copyright 2026 HarnessKit contributors
+
+This product includes material from Harness v2
+(https://github.com/revfactory/harness), Copyright revfactory (robin),
+licensed under the Apache License, Version 2.0.
+Upstream version: v2.1.0, commit 92d9f1b29e7af81acebf51a9fcd1832e739a1414.
+
+Material taken from Harness v2:
+
+- skills/harnesskit/references/harness/*.md
+  Copied without changes from skills/harness/references/.
+
+- skills/harnesskit/references/build.md
+  Derived from skills/harness/SKILL.md. Modified by HarnessKit:
+  the inventory now covers user-level skills, plugins, hooks, output styles
+  and MCP servers; external skills are reused before new ones are generated;
+  a pre-work check step is added to generated orchestrators; and a
+  harnesskit.lock record is written.
+
+- skills/harnesskit/references/mode-evolve.md
+  Derived from skills/evolve/SKILL.md. Modified by HarnessKit:
+  consolidation runs before new rules are added, the conflict check is
+  re-run after every change, and harnesskit.lock is updated.
+
+Each derived file states at its top that it was changed.
