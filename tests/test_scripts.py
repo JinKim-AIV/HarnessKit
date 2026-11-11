@@ -181,13 +181,15 @@ class LockTests(unittest.TestCase):
         p = self.e.project
         write(os.path.join(p, ".claude", "agents", "analyst.md"),
               "---\nname: analyst\ndescription: Analyze requirements\nmodel: sonnet\n---\n\nRead the spec and list risks.\n")
+        write(os.path.join(p, ".claude", "agents", "verifier.md"),
+              "---\nname: verifier\ndescription: 결과 교차 검증\nmodel: opus\n---\n\nCheck the analyst output.\n")
         skill(os.path.join(p, ".claude", "skills", "demo-orch"), "demo-orch", "demo orchestrator")
         self.data = os.path.join(self.e.root, "data.json")
         write(self.data, json.dumps({
             "runtimes": ["claude", "codex"],
             "tools": [{"id": "im-not-ai", "status": "use", "why": "Korean reports"}],
             "decisions": [{"finding": "superpowers vs harnesskit (slot)", "choice": "disable superpowers here"}],
-            "harness": {"orchestrator": "demo-orch", "agents": ["analyst"], "skills": ["demo-orch"]},
+            "harness": {"orchestrator": "demo-orch", "agents": ["analyst", "verifier"], "skills": ["demo-orch"]},
         }))
 
     def tearDown(self):
@@ -213,12 +215,17 @@ class LockTests(unittest.TestCase):
         toml = read(os.path.join(p, ".codex", "agents", "analyst.toml"))
         self.assertIn('name = "analyst"', toml)
         self.assertIn("Read the spec and list risks.", toml)
+        self.assertIn('model_reasoning_effort = "low"', toml)
+        self.assertIn("claude_model=sonnet", toml)
+        vtoml = read(os.path.join(p, ".codex", "agents", "verifier.toml"))
+        self.assertIn('model_reasoning_effort = "high"', vtoml)
         self.assertTrue(os.path.isfile(os.path.join(p, ".agents", "skills", "demo-orch", "SKILL.md")))
 
         os.remove(os.path.join(p, ".claude", "agents", "analyst.md"))
         self.e.run("hklock.py", "mirror", "--project", p, "--to", "claude")
         md = read(os.path.join(p, ".claude", "agents", "analyst.md"))
         self.assertIn("name: analyst", md)
+        self.assertIn("model: sonnet", md)
         self.assertIn("Read the spec and list risks.", md)
 
 

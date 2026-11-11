@@ -25,6 +25,7 @@ import datetime as dt
 import hashlib
 import json
 import os
+import re
 import shutil
 import sys
 
@@ -189,23 +190,49 @@ def toml_string(text):
     return json.dumps(text, ensure_ascii=False)
 
 
+# Claude model tier -> Codex reasoning effort. See references/codex.md section 5.
+TIER_TO_EFFORT = {"fable": "high", "opus": "medium", "sonnet": "low", "haiku": "low"}
+EFFORT_TO_TIER = {"low": "sonnet", "medium": "opus", "high": "opus", "xhigh": "opus", "max": "opus", "ultra": "opus"}
+VERIFY_ROLE = re.compile(r"review|verif|valid|\bqa\b|critic|audit|검증|리뷰|검토", re.I)
+
+
+def claude_tier(model):
+    m = (model or "").lower()
+    return next((t for t in ("fable", "opus", "sonnet", "haiku") if t in m), None)
+
+
 def md_agent_to_toml(md_text):
     meta, body = hkscan.parse_frontmatter(md_text)
-    lines = [f"name = {toml_string(meta.get('name', ''))}",
-             f"description = {toml_string(meta.get('description', ''))}",
-             f"developer_instructions = {toml_multiline(body.strip() + chr(10))}"]
-    if meta.get("model"):
-        lines.append(f"# Claude model tier in the source definition: {meta['model']}. Codex inherits the parent model unless set here.")
+    name, desc = meta.get("name", ""), meta.get("description", "")
+    lines = [f"name = {toml_string(name)}", f"description = {toml_string(desc)}"]
+    tier = claude_tier(meta.get("model"))
+    if tier:
+        effort = TIER_TO_EFFORT[tier]
+        if tier == "opus" and VERIFY_ROLE.search(name + " " + desc):
+            effort = "high"
+        lines.append(f'model_reasoning_effort = "{effort}"')
+        lines.append(f"# harnesskit: claude_model={meta['model']} (references/codex.md 5절). model 은 부모 세션에서 상속한다.")
+        if tier in ("sonnet", "haiku"):
+            lines.append('# 가벼운 역할: 계정에서 쓸 수 있으면 model = "gpt-6-luna" 를 지정한다.')
+        elif tier == "fable":
+            lines.append("# fable 급 역할은 보통 메인 에이전트가 맡는다. 서브에이전트로 둘 이유가 없으면 오케스트레이터에 합친다.")
+    lines.append(f"developer_instructions = {toml_multiline(body.strip() + chr(10))}")
     return "\n".join(lines) + "\n"
 
 
 def toml_agent_to_md(toml_text):
-    import re
-    name = re.search(r'^name\s*=\s*"(.*)"', toml_text, re.M)
-    desc = re.search(r'^description\s*=\s*"(.*)"', toml_text, re.M)
+    def basic(m):
+        return json.loads('"' + m.group(1) + '"') if m else ""
+    name = basic(re.search(r'^name\s*=\s*"(.*)"', toml_text, re.M))
+    desc = basic(re.search(r'^description\s*=\s*"(.*)"', toml_text, re.M))
     body = re.search(r"developer_instructions\s*=\s*(?:'''|\"\"\")\n?(.*?)(?:'''|\"\"\")", toml_text, re.S)
-    return (f"---\nname: {name.group(1) if name else ''}\ndescription: {desc.group(1) if desc else ''}\n---\n\n"
-            f"{body.group(1).strip() if body else ''}\n")
+    tier = re.search(r"#\s*harnesskit:\s*claude_model=([\w.-]+)", toml_text)
+    effort = re.search(r'^model_reasoning_effort\s*=\s*"(\w+)"', toml_text, re.M)
+    model = tier.group(1) if tier else EFFORT_TO_TIER.get(effort.group(1)) if effort else None
+    head = f"---\nname: {name}\ndescription: {json.dumps(desc, ensure_ascii=False)}\n"
+    if model:
+        head += f"model: {model}\n"
+    return head + f"---\n\n{body.group(1).strip() if body else ''}\n"
 
 
 def cmd_mirror(project, to):

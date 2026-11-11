@@ -118,6 +118,8 @@ Harness v2는 Claude Code의 멀티에이전트 기능 세 가지를 사용한�
 
 #### 모델 선택 기준
 
+**[HK]** 아래 표는 Claude 모델 기준이다. Codex 출력이면 같은 기준으로 역할을 나눈 뒤 `references/codex.md` 5절의 대응표로 `model_reasoning_effort`(필요하면 `model`)를 정한다.
+
 업무의 복잡도, 작업 기간, 자율성, 응답 속도를 기준으로 에이전트마다 모델을 고른다. YAML 프론트매터(머리말)의 `model:`이나 호출 인자인 `model`, `opts.model`에 지정하고, 선택 이유를 에이전트 정의나 오케스트레이터에 주석으로 남긴다.
 
 | 모델 | 선택 기준 | 대표 업무 |
