@@ -36,6 +36,8 @@ HarnessKit은 Claude Code와 Codex에서 쓰는 AI 스킬입니다. 프로젝트
 | 하네스를 쓰고 난 뒤 고치기 | `하네스 회고해줘` / `이 피드백 하네스에 반영해줘` |
 | 동료가 만든 구성 그대로 쓰기 | `harnesskit.lock 대로 맞춰줘` |
 | 쓸만한 스킬 목록 보기 | `킷 카탈로그 보여줘` |
+| SNS에서 본 스킬을 나중에 쓰려고 보관 | `이 스킬 카탈로그에 넣어줘 <링크 또는 이름>` → 설치 없이 점검 후 **내 카탈로그**에 저장 |
+| 보관해 둔 스킬 보기 | `내 카탈로그 보여줘` |
 
 ## 무엇을 해 주나
 
@@ -85,7 +87,7 @@ HarnessKit은 Claude Code와 Codex에서 쓰는 AI 스킬입니다. 프로젝트
 
 ## 카탈로그
 
-저장소 파일을 읽고 검토한 도구 51개를 담았습니다. 하네스를 만들 때는 **이미 설치된 것 → 카탈로그 → 웹 탐색** 순으로 후보를 모으고, 설치는 기능 충돌 체크와 SkillSpector 보안 점검을 통과한 것만 합니다. 전체 내용은 `skills/harnesskit/references/catalog.json`에 있고, 스킬은 `hkcatalog.py`로 필요한 항목만 읽습니다.
+저장소 파일을 읽고 검토한 도구 55개를 담았습니다. 하네스를 만들 때는 **이미 설치된 것 → 카탈로그 → 웹 탐색** 순으로 후보를 모으고, 설치는 기능 충돌 체크와 SkillSpector 보안 점검을 통과한 것만 합니다. 전체 내용은 `skills/harnesskit/references/catalog.json`에 있고, 스킬은 `hkcatalog.py`로 필요한 항목만 읽습니다.
 
 | 층 | 도구 | 하는 일 | 주의 |
 |---|---|---|---|
@@ -101,6 +103,8 @@ HarnessKit은 Claude Code와 Codex에서 쓰는 AI 스킬입니다. 프로젝트
 | | Playwright | 웹 E2E 테스트 | 브라우저 도구는 하나만 |
 | UI/UX (`--category ui-ux`) | frontend-design, ui-ux-pro-max, playground, shadcn | UI 설계, 디자인 시스템, 단일 HTML 도구, 컴포넌트 | 설계 스킬끼리 같은 요청을 다툼 |
 | | web-design-guidelines, web-design-reviewer, design-qa, design-review | 코드 규칙 리뷰, 실제 화면 검토, 출시 기준 판정, UX 비평 | 디자인 QA 리뷰어가 단계별로 나눠 씀 |
+| | DESIGN.md (Google Labs), taste-skill | 디자인 기준 파일과 대비 검사, AI 티 없는 랜딩 페이지 | taste-skill은 보안 점검 DO_NOT_INSTALL, 화면 요청을 거의 다 가져감 |
+| 작업 절차 | Superpowers, Spec Kit, BMAD, feature-dev | 질문으로 스펙 뽑기, 명세 문서화, 역할별 관점, 기능 개발 절차 | 같은 "작업 절차" 자리라 하나만 |
 | | Chrome DevTools MCP, draw.io, frontend-slides, Canva, Miro | 성능·접근성 점검, 다이어그램, HTML 슬라이드, 디자인 도구 연동 | |
 | | 공식 code-review, pr-review-toolkit, feature-dev, commit-commands, GitHub MCP | PR 리뷰, 측면별 리뷰, 기능 개발 절차, 커밋·PR, GitHub 연동 | feature-dev는 작업 절차 자리를 다툼 |
 | | Trail of Bits spec-compliance, testing-handbook, claude-security, skill-creator, arXiv MCP | 명세–코드 대조, 퍼징, 보안 스캔, 스킬 작성, 논문 | |
@@ -168,7 +172,7 @@ HarnessKit/
 │       ├── conflict-rules.md        충돌 판정 기준
 │       ├── mode-build.md            하네스 설계 절차 (Harness v2 파생, [HK] 표시)
 │       ├── mode-evolve.md           회고 절차 (Harness v2 파생, [HK] 표시)
-│       ├── mode-check.md, mode-sync.md, codex.md, preflight.md
+│       ├── mode-check.md, mode-sync.md, mode-save.md, codex.md, preflight.md
 │       ├── roles/ui-ux-reviewer.md  디자인 QA 리뷰어 역할 템플릿
 │       └── harness/                 Harness v2 참조 문서 원본
 └── tests/                           python3 -m unittest discover -s tests

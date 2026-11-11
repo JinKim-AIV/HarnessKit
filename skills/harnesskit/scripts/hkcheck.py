@@ -28,6 +28,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+import hkcatalog  # noqa: E402
 import hkscan  # noqa: E402
 
 DEFAULT_CATALOG = os.path.join(HERE, "..", "references", "catalog.json")
@@ -308,7 +309,8 @@ def main(argv=None):
     a = ap.parse_args(argv)
 
     env = load_json(a.env) if a.env else hkscan.scan_env(a.project)
-    catalog = load_json(a.catalog)
+    # The default merges the personal catalog (hkcatalog.py add) with the kit catalog.
+    catalog = hkcatalog.load_catalog() if os.path.abspath(a.catalog) == os.path.abspath(DEFAULT_CATALOG) else load_json(a.catalog)
     scans = [load_json(p) for p in a.candidate_scan]
     comps = build_components(env, a.candidate, scans, catalog)
     findings = check(env, comps, catalog)

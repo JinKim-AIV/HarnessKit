@@ -1,5 +1,5 @@
 {
-  "version": "2026-11-11c",
+  "version": "2026-11-11d",
   "about": "HarnessKit 큐레이션 카탈로그. verified=direct는 저장소 파일을 직접 읽고 작성한 항목, verified=survey는 조사 과정에서 저장소 문서를 확인한 항목이다. survey 항목의 설치 명령은 쓰기 전에 원 저장소 README로 한 번 더 확인한다. 원문 인용은 영어 그대로 둔다.",
   "conflict_types": {
     "trigger": "같은 요청에 둘 이상이 반응해, 실행할 때마다 어느 쪽이 불릴지 달라진다.",
@@ -2927,6 +2927,262 @@
           "type": "role",
           "detail": "design-qa는 'checks states, WCAG 2.2 contrast, touch targets, breakpoints, and keyboard paths'이고, web-design-guidelines도 접근성·포커스·반응형 규칙을 본다. 같은 문제를 두 번 보고하게 된다. 다만 web-design-guidelines는 코드를 file:line으로, design-qa는 화면·HTML을 합격/불합격 표로 본다.",
           "resolve": "디자인 QA 에이전트에서는 코드 단계에 web-design-guidelines, 출시 기준 단계에 design-qa를 두고, 겹치는 지적은 보고서에서 하나로 합친다."
+        }
+      ],
+      "verified": "direct",
+      "checked": "2026-11-11"
+    },
+    {
+      "id": "design-md",
+      "name": "DESIGN.md (Google Labs 규격과 CLI)",
+      "repo": "https://github.com/google-labs-code/design.md",
+      "license": "Apache-2.0",
+      "layer": "task",
+      "role": "design-standard",
+      "category": "ui-ux",
+      "capabilities": [
+        "design-tokens",
+        "design-standard",
+        "contrast-lint",
+        "token-diff",
+        "tailwind-export"
+      ],
+      "use_when": [
+        "화면을 만드는 하네스에서 색·글꼴·간격 기준을 프로젝트 루트의 DESIGN.md 한 파일로 정해, 빌드 담당과 디자인 QA가 같은 기준을 보게 할 때.",
+        "기준 파일의 토큰 참조 오류와 WCAG 대비를 lint로 확인하거나, 두 버전을 diff로 비교할 때."
+      ],
+      "skip_when": [
+        "이미 다른 디자인 기준 파일(ui-ux-pro-max의 MASTER.md 등)을 쓰는 프로젝트."
+      ],
+      "install": {
+        "claude": [
+          "파일 형식이라 설치할 것은 없다. 검사 CLI: npx @google/design.md@0.4.0 lint --format json DESIGN.md (Node.js 필요)"
+        ],
+        "codex": [
+          "같다. npx @google/design.md@0.4.0 lint --format json DESIGN.md"
+        ]
+      },
+      "requires": [
+        "Node.js (CLI를 쓸 때만)"
+      ],
+      "detect": {},
+      "always_on": "없음. 에이전트가 프로젝트의 DESIGN.md를 읽을 때만 컨텍스트를 쓴다.",
+      "external_data": "없음. npx로 실행하면 npm 레지스트리에서 패키지를 받는다.",
+      "security": "SkillSpector 2.12.0 (--no-llm) 2026-11-11 점검, 저장소 전체(CLI 소스·테스트·잠금 파일): DO_NOT_INSTALL 100점. 대부분 테스트와 package-lock.json의 의존성 기록(SC4)이다. DESIGN.md 파일 자체에는 실행 코드가 없다. CLI는 버전을 고정해 npx로만 쓴다.",
+      "conflicts": [
+        {
+          "with": "ui-ux-pro-max",
+          "type": "slot",
+          "detail": "ui-ux-pro-max는 '`design-system/<project-slug>/MASTER.md` — Global Source of Truth'라고 한다. DESIGN.md를 함께 두면 디자인 기준 파일이 둘로 갈린다.",
+          "resolve": "프로젝트마다 기준 파일은 하나만 둔다. 이미 있는 쪽을 쓰고, 새로 시작하면 DESIGN.md를 쓴다."
+        },
+        {
+          "with": "impeccable",
+          "type": "side-effect",
+          "detail": "impeccable은 디자인 시스템을 자체 형식의 DESIGN.md에 두고 리디자인 때 'replace DESIGN.md'라고 한다. Google 규격으로 쓴 DESIGN.md를 덮어쓸 수 있다.",
+          "resolve": "같은 프로젝트에서 둘을 함께 쓰지 않거나, impeccable이 DESIGN.md를 바꾸기 전에 확인받게 한다."
+        }
+      ],
+      "verified": "direct",
+      "checked": "2026-11-11"
+    },
+    {
+      "id": "taste-skill",
+      "name": "taste-skill (design-taste-frontend 2.5.1)",
+      "repo": "https://github.com/Leonxlnx/taste-skill",
+      "license": "MIT",
+      "layer": "optional",
+      "role": "frontend-design",
+      "category": "ui-ux",
+      "capabilities": [
+        "anti-ai-look",
+        "frontend-build",
+        "browser-finish-gate",
+        "copy-lint"
+      ],
+      "use_when": [
+        "회사·제품 랜딩 페이지를 'AI가 만든 티' 없이 만들고, 실제 브라우저 검사(finish gate)까지 맡기고 싶을 때."
+      ],
+      "skip_when": [
+        "다른 프런트엔드 디자인 스킬이 이미 화면 생성을 맡을 때: 설명문이 거의 모든 웹 화면 요청에 반응한다.",
+        "외부 리소스 없이 파일 하나로 열려야 하는 결과물: 템플릿이 Google Fonts와 CDN 아이콘을 불러온다.",
+        "Node.js 22 이상과 Chrome/Chromium이 없는 환경."
+      ],
+      "install": {
+        "claude": [
+          "/plugin marketplace add Leonxlnx/taste-skill",
+          "/plugin install taste-skill@taste-skill"
+        ],
+        "codex": [
+          "codex plugin marketplace add Leonxlnx/taste-skill",
+          "codex plugin add taste-skill@taste-skill"
+        ]
+      },
+      "requires": [
+        "Node.js 22+",
+        "Chrome, Edge 또는 Chromium (CHROME_PATH)"
+      ],
+      "detect": {
+        "plugins": [
+          "taste-skill"
+        ],
+        "skills": [
+          "design-taste-frontend"
+        ]
+      },
+      "always_on": "스킬 설명문 1개. 매우 길고 거의 모든 웹 화면 요청에 반응하도록 쓰였다. 훅 없음.",
+      "external_data": "템플릿이 Google Fonts와 jsDelivr CDN을 불러온다. 사진 스크립트는 Wikimedia Commons 자료를 다룬다.",
+      "security": "SkillSpector 2.12.0 (--no-llm) 2026-11-11 점검, 설치 범위: DO_NOT_INSTALL 87점, HIGH 21건. 디자인 에셋 HTML의 YARA 시그니처, 참고 문서의 프롬프트 주입·시스템 프롬프트 유출 패턴. 에셋이 많아 점검에 약 6분 걸린다.",
+      "notes": "설치하지 않아도 'AI가 만든 티'를 막는 문제의식은 디자인 QA 리뷰어 기본 점검표(references/roles/ui-ux-reviewer.md)에 반영했다.",
+      "conflicts": [
+        {
+          "with": "frontend-design",
+          "type": "trigger",
+          "detail": "taste-skill 설명문은 'Use this whenever you build, design, redesign, restyle, polish or review a landing page, company, product ... site'라고 해 frontend-design이 맡는 화면 생성 요청을 거의 모두 가져간다.",
+          "resolve": "화면 생성 스킬은 하나만 둔다."
+        },
+        {
+          "with": "web-design-reviewer",
+          "type": "trigger",
+          "detail": "taste-skill 설명문의 '... polish or review a landing page'가 web-design-reviewer의 'review website design'과 같은 리뷰 요청에 반응한다.",
+          "resolve": "리뷰는 디자인 QA 리뷰어의 단계별 스킬로 정하고, taste-skill에는 리뷰를 맡기지 않는다."
+        },
+        {
+          "with": "design-qa",
+          "type": "role",
+          "detail": "taste-skill은 'a checker and finish gate that enforce it in a real browser'를 갖고, design-qa는 'pre-ship design QA gate'다. 출시 전 관문이 둘이 된다.",
+          "resolve": "출시 전 판정은 한 곳(디자인 QA 리뷰어)에서 한다."
+        }
+      ],
+      "verified": "direct",
+      "checked": "2026-11-11"
+    },
+    {
+      "id": "spec-kit",
+      "name": "Spec Kit (GitHub)",
+      "repo": "https://github.com/github/spec-kit",
+      "license": "MIT",
+      "layer": "optional",
+      "slot": "process",
+      "capabilities": [
+        "spec-driven",
+        "specify",
+        "plan",
+        "tasks"
+      ],
+      "use_when": [
+        "여러 사람이 이어받을 기능을 명세 → 계획 → 작업 목록 → 구현 순서의 문서로 Git에 남겨야 할 때."
+      ],
+      "skip_when": [
+        "HarnessKit 오케스트레이터나 Superpowers가 이미 작업 절차를 맡은 프로젝트.",
+        "작은 수정이나 단발 작업."
+      ],
+      "install": {
+        "claude": [
+          "uv tool install specify-cli==1.4.0",
+          "프로젝트 폴더에서: specify init --here --integration claude"
+        ],
+        "codex": [
+          "uv tool install specify-cli==1.4.0",
+          "specify init --here --integration codex"
+        ]
+      },
+      "requires": [
+        "Python 3.11+",
+        "uv"
+      ],
+      "detect": {
+        "skills": [
+          "speckit-specify",
+          "speckit-plan",
+          "speckit-tasks"
+        ]
+      },
+      "always_on": "init 후 프로젝트에 .claude/skills/speckit-<명령>/ 스킬들과 .specify/ 템플릿이 생긴다. 스킬 설명문 여러 개.",
+      "external_data": "없음 (설치 시 PyPI와 GitHub 릴리스에서 받는다).",
+      "security": "SkillSpector 2.12.0 (--no-llm) 2026-11-11 점검, 저장소 전체(CLI 소스·개발 컨테이너 포함): DO_NOT_INSTALL 100점. CLI 도구라 실제로 쓰는 것은 init이 만드는 스킬·템플릿이다. specify init 후 생성된 .claude/skills/speckit-* 폴더를 hkinspect.py로 다시 점검하고 쓴다.",
+      "conflicts": [
+        {
+          "with": "superpowers",
+          "type": "slot",
+          "detail": "Spec Kit은 specify → plan → tasks → implement 순서로 작업 절차를 정하고, Superpowers도 brainstorming → writing-plans → executing-plans로 절차를 정한다.",
+          "resolve": "작업 절차는 하나만 맡긴다."
+        },
+        {
+          "with": "harnesskit",
+          "type": "slot",
+          "detail": "HarnessKit 오케스트레이터도 착수 전 확인과 단계 순서를 정한다. Spec Kit 명령과 함께 쓰면 절차가 둘이 된다.",
+          "resolve": "오케스트레이터가 Spec Kit 산출물(spec.md, plan.md, tasks.md)을 입력으로 읽게 하거나, 둘 중 하나만 쓴다."
+        }
+      ],
+      "verified": "direct",
+      "checked": "2026-11-11"
+    },
+    {
+      "id": "bmad-method",
+      "name": "BMAD Method",
+      "repo": "https://github.com/bmad-code-org/BMAD-METHOD",
+      "license": "MIT",
+      "layer": "optional",
+      "slot": "process",
+      "capabilities": [
+        "multi-role-agents",
+        "analyst",
+        "pm",
+        "architect",
+        "agile-workflow"
+      ],
+      "use_when": [
+        "기획·설계·개발을 분석가·PM·아키텍트 같은 역할 에이전트로 나눠 문서를 단계별로 쌓고, 혼자서는 놓치는 관점을 확보하고 싶을 때."
+      ],
+      "skip_when": [
+        "HarnessKit이 이미 역할별 에이전트 팀을 만든 프로젝트: 역할 에이전트가 겹친다.",
+        "v7은 알파라 업데이트 사이에 호환이 깨질 수 있다(README)."
+      ],
+      "install": {
+        "claude": [
+          "안정판 v6.12: 프로젝트 폴더에서 npx bmad-method@6.12.4 install",
+          "v7 알파: /plugin marketplace add bmad-code-org/bmad-plugins 후 bmad-method 설치"
+        ],
+        "codex": [
+          "v7 알파: codex plugin marketplace add bmad-code-org/bmad-plugins 후 bmad-method 설치"
+        ]
+      },
+      "requires": [
+        "Node.js 20.12+",
+        "Python 3.10+ (v6.12)"
+      ],
+      "detect": {
+        "skills": [
+          "bmad",
+          "bmad-build",
+          "bmad-help"
+        ],
+        "plugins": [
+          "bmad-method"
+        ]
+      },
+      "always_on": "역할 에이전트와 단계 스킬이 여러 개 설치된다. 설명문이 많다.",
+      "external_data": "없음 (설치 시 npm에서 받는다).",
+      "security": "SkillSpector 2.12.0 (--no-llm) 2026-11-11 점검, skills/: DO_NOT_INSTALL 100점, CRITICAL 1건(도움말 문서의 프롬프트 주입 패턴), HIGH 41건. 설치 전에 근거를 확인해야 한다.",
+      "conflicts": [
+        {
+          "with": "superpowers",
+          "type": "slot",
+          "detail": "BMAD도 bmad-build로 작업 절차 전체를 정한다. Superpowers와 함께 쓰면 절차가 둘이 된다.",
+          "resolve": "작업 절차는 하나만 맡긴다."
+        },
+        {
+          "with": "spec-kit",
+          "type": "slot",
+          "detail": "둘 다 기획 문서 → 구현의 절차를 정한다.",
+          "resolve": "하나만 쓴다."
+        },
+        {
+          "with": "harnesskit",
+          "type": "role",
+          "detail": "BMAD는 분석가·PM·아키텍트 같은 역할 에이전트를 제공하고, HarnessKit도 프로젝트에 맞는 역할 에이전트 팀을 만든다. 같은 역할이 두 벌 생긴다.",
+          "resolve": "HarnessKit 하네스가 있으면 BMAD 역할 에이전트를 함께 켜지 않는다. 여러 관점이 필요하면 하네스 설계에서 심사위원단·관점 분산 검증 패턴을 쓴다."
         }
       ],
       "verified": "direct",

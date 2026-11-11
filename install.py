@@ -103,13 +103,13 @@ def self_check(project):
     """Run the kit's own conflict check against what is installed."""
     sys.path.insert(0, os.path.join(SRC, "scripts"))
     try:
+        import hkcatalog
         import hkcheck
         import hkscan
     except ImportError as e:
         return [f"자체 점검을 건너뜀: {e}"]
     env = hkscan.scan_env(project)
-    with open(hkcheck.DEFAULT_CATALOG, encoding="utf-8") as f:
-        catalog = json.load(f)
+    catalog = hkcatalog.load_catalog()
     comps = hkcheck.build_components(env, ["harnesskit"], [], catalog)
     lines = []
     for f in hkcheck.check(env, comps, catalog):

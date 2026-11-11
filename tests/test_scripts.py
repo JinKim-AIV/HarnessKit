@@ -314,6 +314,55 @@ class SelfInspectTests(unittest.TestCase):
         self.assertIn(res["verdict"], ("SAFE", "CAUTION"))
 
 
+class PersonalCatalogTests(unittest.TestCase):
+    def setUp(self):
+        self.e = Env()
+
+    def tearDown(self):
+        self.e.cleanup()
+
+    def entry(self, **over):
+        e = {"id": "my-slides", "name": "My Slides", "repo": "https://github.com/someone/my-slides", "license": "MIT",
+             "layer": "task", "role": "slides", "use_when": ["발표 자료"], "skip_when": [], "install": {"claude": ["x"]},
+             "detect": {"skills": ["my-slides"]}, "always_on": "설명문 1개", "external_data": "없음.",
+             "conflicts": [{"with": "frontend-slides", "type": "trigger", "detail": "둘 다 슬라이드 요청에 반응", "resolve": "하나만"}],
+             "verified": "direct", "memo": "인스타에서 봄"}
+        e.update(over)
+        path = os.path.join(self.e.root, "entry.json")
+        write(path, json.dumps(e, ensure_ascii=False))
+        return path
+
+    def cat(self, *args, check=True):
+        env = dict(os.environ, CLAUDE_CONFIG_DIR=self.e.claude, CODEX_HOME=self.e.codex, HOME=self.e.root)
+        return subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "hkcatalog.py"), *args],
+                              capture_output=True, text=True, env=env, check=check)
+
+    def test_add_find_check_remove(self):
+        out = json.loads(self.cat("add", "--file", self.entry()).stdout)
+        self.assertEqual(out["saved"], "my-slides")
+        self.assertTrue(out["path"].startswith(self.e.root))
+        mine = [json.loads(l) for l in self.cat("mine").stdout.splitlines()]
+        self.assertEqual([m["id"] for m in mine], ["my-slides"])
+        self.assertEqual(mine[0]["origin"], "mine")
+        found = [json.loads(l)["id"] for l in self.cat("find", "--role", "slides").stdout.splitlines()]
+        self.assertIn("my-slides", found)
+        self.assertIn("frontend-slides", found)
+        # hkcheck merges the personal catalog: the saved conflict shows up between candidates
+        data = json.loads(self.e.run("hkcheck.py", "--project", self.e.project,
+                                     "--candidate", "my-slides", "--candidate", "frontend-slides"))
+        self.assertTrue(any("my-slides" in " ".join(f["items"]) and f["type"] == "trigger" for f in data["findings"]))
+        self.cat("remove", "my-slides")
+        self.assertEqual(self.cat("mine").stdout.strip(), "{}")
+
+    def test_rejects_duplicates_and_bad_entries(self):
+        dup = self.cat("add", "--file", self.entry(id="x-dup", repo="https://github.com/humbleteam/design-qa.git"), check=False)
+        self.assertNotEqual(dup.returncode, 0)
+        self.assertIn("이미 키트 카탈로그에 있음", dup.stderr)
+        bad = self.cat("add", "--file", self.entry(layer="nope", conflicts=[{"with": "a", "type": "weird"}]), check=False)
+        self.assertNotEqual(bad.returncode, 0)
+        self.assertIn("layer", bad.stderr)
+
+
 class CatalogTests(unittest.TestCase):
     def test_category_filter(self):
         out = subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "hkcatalog.py"), "find", "--category", "ui-ux"],

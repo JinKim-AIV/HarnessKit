@@ -1,6 +1,6 @@
 ---
 name: harnesskit
-description: "HarnessKit(킷, kit). 프로젝트나 업무에 맞는 AI 하네스(에이전트·스킬·오케스트레이터)를 만든다. 만들기 전에 설치된 스킬·플러그인·훅·MCP를 진단하고, 서로 기능이 부딪히는 도구를 설치 전에 찾아 정리하고, 검증된 오픈소스 스킬을 연결한다. Claude Code와 Codex 모두 지원. '킷으로 하네스 만들어줘', 'kit로 이 프로젝트 하네스 구성해줘', '하네스 만들어줘', '이 스킬 깔아도 돼?', '스킬 충돌 체크', '하네스 회고', 'harnesskit.lock 대로 맞춰줘', '쓸만한 스킬 추천' 같은 요청에 쓴다. 하네스와 무관한 단순 질문에는 쓰지 않는다."
+description: "HarnessKit(킷, kit). 프로젝트나 업무에 맞는 AI 하네스(에이전트·스킬·오케스트레이터)를 만든다. 만들기 전에 설치된 스킬·플러그인·훅·MCP를 진단하고, 서로 기능이 부딪히는 도구를 설치 전에 찾아 정리하고, 검증된 오픈소스 스킬을 연결한다. Claude Code와 Codex 모두 지원. '킷으로 하네스 만들어줘', 'kit로 이 프로젝트 하네스 구성해줘', '하네스 만들어줘', '이 스킬 깔아도 돼?', '스킬 충돌 체크', '하네스 회고', 'harnesskit.lock 대로 맞춰줘', '쓸만한 스킬 추천', '이 스킬 카탈로그에 넣어줘' 같은 요청에 쓴다. 하네스와 무관한 단순 질문에는 쓰지 않는다."
 ---
 
 # HarnessKit
@@ -33,6 +33,7 @@ description: "HarnessKit(킷, kit). 프로젝트나 업무에 맞는 AI 하네�
 | 이 스킬 깔아도 돼? / 충돌 체크 / 이 저장소 괜찮아? | check | `references/mode-check.md` |
 | 하네스 회고 / 피드백 반영 / 진화 | evolve | `references/mode-evolve.md` |
 | lock대로 맞춰줘 / 동료 구성 재현 | sync | `references/mode-sync.md` |
+| 이거 카탈로그에 넣어줘 / 나중에 쓰게 저장 / 내 카탈로그 보여줘 | save | `references/mode-save.md` (설치하지 않고 보관만) |
 | 쓸만한 스킬 / 카탈로그 보여줘 | catalog | `hkcatalog.py roles`로 역할별 목록을 보여 주고, 궁금한 항목은 `hkcatalog.py show <id>`. `verified`와 외부 전송 여부를 함께 보여 준다 |
 
 ## build 절차
@@ -49,7 +50,7 @@ description: "HarnessKit(킷, kit). 프로젝트나 업무에 맞는 AI 하네�
 
 **4. 도구 선별 (후보는 넓게, 설치는 좁게)**: `mode-build.md` 1단계로 업무를 분석해 필요한 역량을 정한 뒤, 역량마다 세 곳에서 후보를 모은다.
 1. **이미 설치된 것**(동기화된 스킬 포함): 맞으면 가장 먼저 쓴다. 설치 비용이 없다.
-2. **카탈로그**: `hkcatalog.py find --role <역할>` 또는 `--text <키워드>`로 찾는다. 검토를 마친 도구라 우선한다. `use_when`, `skip_when`, `requires`, 외부 전송을 보고 거른다.
+2. **카탈로그**: `hkcatalog.py find --role <역할>` 또는 `--text <키워드>`로 찾는다. 키트 카탈로그와 사용자가 보관해 둔 **내 카탈로그**(`origin: mine`)가 함께 나온다. 검토를 마친 도구라 우선하고, 내 카탈로그 항목은 "내 카탈로그"로 표시한다. `use_when`, `skip_when`, `requires`, 외부 전송을 보고 거른다.
 3. **바깥(웹)**: 카탈로그와 별개로 매번 찾아본다. 공식 출처(Claude Code는 `anthropics/skills`와 공식 마켓플레이스 `claude-plugins-official`, Codex는 공식 문서의 스킬) → 큐레이션 목록(`hesreallyhim/awesome-claude-code`, `VoltAgent/awesome-agent-skills`) → 일반 검색 순서로 본다. 역량마다 3개, 전체 8개까지만 본다. 결과에는 **카탈로그 밖** 표시를 단다. 웹 검색 도구가 없으면 이 단계는 건너뛰고 그 사실을 알린다.
 
 산출물에 사람이 읽는 한국어 글이 있으면 한국어 윤문 도구(`role: korean-writing`)를 기본 후보에 넣는다. 산출물에 화면(웹 UI, HTML)이 있으면 `hkcatalog.py find --category ui-ux`로 UI 설계·리뷰 도구를 후보에 넣고, 6단계에서 디자인 QA 에이전트(`references/roles/ui-ux-reviewer.md`)를 둔다. 모은 후보는 출처(설치됨 / 카탈로그 / 카탈로그 밖), 하는 일, 이유를 한 표로 보여 주고 고르게 한다. 같은 역할 후보가 여럿이면 하나를 추천하고, 나머지는 왜 뺐는지 한 줄씩 적는다.
@@ -62,7 +63,8 @@ description: "HarnessKit(킷, kit). 프로젝트나 업무에 맞는 AI 하네�
    - `DO_NOT_INSTALL`: 설치하지 않는다. 사용자가 근거를 본 뒤 위험을 감수한다고 분명히 말한 경우에만 설치하고, 그 결정을 lock의 `decisions`에 남긴다.
    - `missing`(SkillSpector 없음): 출력의 설치 명령으로 SkillSpector부터 설치할지 묻는다. 설치하지 못하면 외부 도구는 설치하지 않는다.
 3. **기능 충돌 체크**: `hkscan.py repo <폴더> --out ...`과 `hkcheck.py --env ... --candidate-scan ...`(카탈로그 도구는 `--candidate <id>`)로 설치된 것과 부딪히는지 본다. `review` 항목은 `conflict-rules.md`로 판정한다.
-4. **설치**: 두 점검 결과를 한 표로 보여 주고 승인받은 것만 설치한다. 카탈로그 도구는 해당 런타임 설치 명령을 쓰고, `verified: survey`면 README로 명령을 한 번 확인한다. `/plugin ...` 같은 슬래시 명령은 사용자에게 입력을 부탁한다. 설치 후 다시 스캔하고, 실패한 도구는 다시 시도하지 않고 `skipped`로 기록한다.
+4. **CLI로 설치하는 도구**(Spec Kit의 `specify init`, BMAD 설치기처럼 프로젝트에 스킬·명령을 만들어 주는 것): SkillSpector는 스킬 점검용이라 CLI 저장소 전체를 넣으면 판정이 부풀려진다. 설치 전에는 저장소 점검 결과를 참고로 보여 주고, 설치한 뒤 생성된 폴더(예: `.claude/skills/speckit-*`)를 `hkinspect.py`로 다시 점검해 통과해야 쓴다.
+5. **설치**: 두 점검 결과를 한 표로 보여 주고 승인받은 것만 설치한다. 카탈로그 도구는 해당 런타임 설치 명령을 쓰고, `verified: survey`면 README로 명령을 한 번 확인한다. `/plugin ...` 같은 슬래시 명령은 사용자에게 입력을 부탁한다. 설치 후 다시 스캔하고, 실패한 도구는 다시 시도하지 않고 `skipped`로 기록한다.
 
 **6. 하네스 설계·생성**: `references/mode-build.md`의 1~6단계를 따른다. 2단계 설계가 끝나면 **파일을 만들기 전에 설계안(2-4)을 보여 주고 승인받는다.** 이때 아래 **도구 브리프**를 함께 넘긴다.
 

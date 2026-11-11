@@ -26,6 +26,7 @@ Standard library only; never executes code from the scanned path.
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -77,7 +78,9 @@ def stage(target):
     for other tools; scanning those buries the findings that matter.
     """
     tmp = tempfile.mkdtemp(prefix="hk-inspect-")
-    dst = os.path.join(tmp, os.path.basename(os.path.normpath(target)) or "target")
+    # A folder named like "x.md" is read as a markdown file by SkillSpector; keep the name plain.
+    name = re.sub(r"[^A-Za-z0-9_-]+", "-", os.path.basename(os.path.normpath(target))).strip("-") or "target"
+    dst = os.path.join(tmp, name)
     if os.path.isfile(target):
         os.makedirs(dst)
         shutil.copy2(target, dst)

@@ -222,6 +222,8 @@ YAML 프론트매터에는 `name`과 `description`을 반드시 넣는다. 필�
 
 산출물에 웹 UI, HTML, 컴포넌트가 있으면 `references/roles/ui-ux-reviewer.md` 템플릿으로 디자인 QA 에이전트를 둔다. 화면을 만드는 에이전트와 검토하는 에이전트를 나누고, 빌드 → 디자인 QA → (불합격이면) P0·P1 수정 → 재검증 순서로 오케스트레이터에 넣는다. 설계안(2-4)의 작업 흐름에 이 반복을 그리고, 단계마다 쓸 UI/UX 스킬(설치된 것만)을 적는다.
 
+디자인 기준 파일은 하나만 둔다. 프로젝트에 이미 기준 파일(`DESIGN.md`, `MASTER.md` 등)이 있으면 그것을 쓰고, 없으면 설계안의 "정할 것"에 "`DESIGN.md`(Google Labs 규격)를 만들지"를 넣는다. 만들면 빌드 담당과 디자인 QA가 같은 파일을 기준으로 삼는다.
+
 ### 4단계: 스킬 작성
 
 각 에이전트가 따를 스킬을 `프로젝트/.claude/skills/{name}/SKILL.md`에 만든다. 자세한 작성법은 `references/harness/skill-writing-guide.md`를 따른다.
