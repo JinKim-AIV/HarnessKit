@@ -1,12 +1,12 @@
 {
   "version": "2026-11-11",
-  "about": "HarnessKit curated catalog. verified=direct means the repository files were read for this entry; verified=survey means a research pass read the repository docs but install commands should be re-checked once before use.",
+  "about": "HarnessKit 큐레이션 카탈로그. verified=direct는 저장소 파일을 직접 읽고 작성한 항목, verified=survey는 조사 과정에서 저장소 문서를 확인한 항목이다. survey 항목의 설치 명령은 쓰기 전에 원 저장소 README로 한 번 더 확인한다. 원문 인용은 영어 그대로 둔다.",
   "conflict_types": {
-    "trigger": "Two items fire on the same request, so which one runs changes from run to run.",
-    "contradiction": "Two items give opposite instructions for the same situation.",
-    "slot": "Two items compete for a slot only one can hold (output style, session-start bootstrap, process owner).",
-    "role": "Two items do the same job (two memory systems, two HWP readers), doubling cost and splitting state.",
-    "side-effect": "Two items change the same setting, file, or network path."
+    "trigger": "같은 요청에 둘 이상이 반응해, 실행할 때마다 어느 쪽이 불릴지 달라진다.",
+    "contradiction": "같은 상황에 서로 반대로 지시한다.",
+    "slot": "하나만 차지할 수 있는 자리(출력 스타일, 세션 시작 지침, 작업 절차 담당)를 다툰다.",
+    "role": "같은 일을 하는 도구가 둘이라 비용이 두 배가 되고 상태가 갈라진다.",
+    "side-effect": "같은 설정, 파일, 네트워크 경로를 바꾼다."
   },
   "entries": [
     {
@@ -16,13 +16,13 @@
       "slot": "harness-builder",
       "capabilities": ["harness-build", "conflict-check", "catalog", "harness-evolve"],
       "detect": {"skills": ["harnesskit"]},
-      "always_on": "Skill description only (one skill). No hooks.",
-      "external_data": "None.",
+      "always_on": "스킬 설명문 1개. 훅 없음.",
+      "external_data": "없음.",
       "license": "Apache-2.0",
       "conflicts": [
         {"with": "harness", "type": "trigger",
-         "detail": "Both respond to requests such as '하네스 구성해줘' and '하네스 회고', so either may run.",
-         "resolve": "Disable the original harness plugin while using HarnessKit; HarnessKit already carries its procedure (Apache-2.0 fork)."}
+         "detail": "둘 다 '하네스 구성해줘', '하네스 회고' 같은 요청에 반응하므로 어느 쪽이 실행될지 정해지지 않는다.",
+         "resolve": "HarnessKit을 쓰는 동안 원본 harness 플러그인을 끈다. HarnessKit에 그 절차가 이미 들어 있다(Apache-2.0 포크)."}
       ],
       "verified": "direct"
     },
@@ -34,12 +34,12 @@
       "layer": "excluded",
       "slot": "harness-builder",
       "capabilities": ["harness-build", "harness-evolve"],
-      "use_when": ["You want the upstream harness without HarnessKit's inventory and conflict check."],
-      "skip_when": ["HarnessKit is installed; it already includes this procedure."],
+      "use_when": ["HarnessKit의 설치 환경 진단과 충돌 체크 없이 원본만 쓰고 싶을 때."],
+      "skip_when": ["HarnessKit이 설치되어 있을 때. 같은 절차가 이미 들어 있다."],
       "install": {"claude": ["/plugin marketplace add revfactory/harness", "/plugin install harness@harness-marketplace"]},
       "detect": {"plugins": ["harness"], "skills": ["harness", "evolve"]},
-      "always_on": "Two skill descriptions. No hooks.",
-      "external_data": "None.",
+      "always_on": "스킬 설명문 2개. 훅 없음.",
+      "external_data": "없음.",
       "conflicts": [],
       "verified": "direct"
     },
@@ -51,25 +51,25 @@
       "layer": "always-on",
       "slot": "process",
       "capabilities": ["brainstorming", "planning", "tdd", "debugging", "code-review", "verification"],
-      "use_when": ["Solo development without a HarnessKit harness, where you want a strict brainstorm -> plan -> TDD -> verify process."],
-      "skip_when": ["The project has a HarnessKit/Harness orchestrator that already owns the work process.", "Mostly non-code work (reports, documents)."],
+      "use_when": ["HarnessKit 하네스 없이 혼자 개발하면서 브레인스토밍 → 계획 → TDD → 검증 절차를 엄격하게 따르고 싶을 때."],
+      "skip_when": ["프로젝트에 작업 절차를 맡은 HarnessKit/Harness 오케스트레이터가 있을 때.", "코드가 아닌 업무(보고서, 문서)가 대부분일 때."],
       "install": {
         "claude": ["/plugin marketplace add obra/superpowers", "/plugin install superpowers@superpowers-dev"],
-        "codex": ["See the repository README for the Codex setup (AGENTS.md based)."]
+        "codex": ["저장소 README의 Codex 설정 방법(AGENTS.md 기반)을 따른다."]
       },
       "detect": {"plugins": ["superpowers"], "skills": ["using-superpowers", "brainstorming"]},
-      "always_on": "SessionStart hook (startup|clear|compact) injects skills/using-superpowers/SKILL.md (~3.2k chars) into every session, plus 14 skill descriptions.",
-      "external_data": "None found.",
+      "always_on": "SessionStart 훅(startup|clear|compact)이 매 세션 skills/using-superpowers/SKILL.md(약 3.2천 자)를 주입한다. 스킬 설명문 14개.",
+      "external_data": "확인된 것 없음.",
       "conflicts": [
         {"with": "attention-span", "type": "contradiction",
-         "detail": "using-superpowers: 'Invoke relevant or requested skills BEFORE any response or action' and 'announce \"Using [skill] to [purpose]\"'. Attention-kind: 'Lead with the bottom line, in one sentence. The first sentence carries the single most important takeaway'. Both claim the first line of every reply.",
-         "resolve": "Pick one, or add a precedence line: 'The first sentence is the conclusion; skill-use announcements go after it or are omitted.'"},
+         "detail": "using-superpowers는 'Invoke relevant or requested skills BEFORE any response or action', 'announce \"Using [skill] to [purpose]\"'라고 하고, Attention-kind는 'Lead with the bottom line, in one sentence. The first sentence carries the single most important takeaway'라고 한다. 둘 다 모든 응답의 첫 줄을 가져가려 한다.",
+         "resolve": "하나만 고르거나, 우선순위 한 줄을 넣는다: '답변 첫 문장은 결론. 스킬 사용 안내는 결론 뒤에 두거나 생략.'"},
         {"with": "karpathy-guidelines", "type": "contradiction",
-         "detail": "using-superpowers: 'If you think there is even a 1% chance a skill might apply ... you ABSOLUTELY MUST invoke the skill' and 'Skill check comes BEFORE clarifying questions'. Karpathy: 'If something is unclear, stop. Name what's confusing. Ask.' and 'For trivial tasks, use judgment.' They disagree on what comes first and on whether small tasks get the full process. Their brainstorming and 'Think Before Coding' parts also do the same job (role overlap).",
-         "resolve": "Let one own the pre-coding step. If both stay, add: 'For trivial tasks skip brainstorming; when unclear, ask before invoking process skills.'"},
+         "detail": "using-superpowers는 'If you think there is even a 1% chance a skill might apply ... you ABSOLUTELY MUST invoke the skill', 'Skill check comes BEFORE clarifying questions'라고 하고, Karpathy는 'If something is unclear, stop. Name what's confusing. Ask.', 'For trivial tasks, use judgment.'라고 한다. 무엇을 먼저 할지, 작은 작업에도 전체 절차를 적용할지에서 어긋난다. brainstorming과 'Think Before Coding'은 같은 일을 한다(역할 중복).",
+         "resolve": "코딩 전 단계를 한쪽에 맡긴다. 둘 다 둔다면 한 줄을 넣는다: '사소한 작업은 brainstorming 생략. 불분명하면 절차 스킬을 부르기 전에 먼저 묻는다.'"},
         {"with": "harnesskit", "type": "slot",
-         "detail": "Superpowers brainstorming says 'You MUST use this before any creative work' and its plan/execute skills define the whole work process; a HarnessKit orchestrator defines its own process and pre-work check.",
-         "resolve": "In projects with a HarnessKit harness, disable Superpowers for that project, or tell the orchestrator to delegate the process to Superpowers and drop its own pre-work check."}
+         "detail": "Superpowers brainstorming은 'You MUST use this before any creative work'라고 하고 plan/execute 스킬로 작업 절차 전체를 정한다. HarnessKit 오케스트레이터도 자기 절차와 착수 전 확인을 갖는다.",
+         "resolve": "HarnessKit 하네스가 있는 프로젝트에서는 Superpowers를 끈다. 아니면 오케스트레이터가 절차를 Superpowers에 맡기고 자기 착수 전 확인을 뺀다."}
       ],
       "verified": "direct"
     },
@@ -77,42 +77,42 @@
       "id": "karpathy-guidelines",
       "name": "Karpathy Guidelines",
       "repo": "https://github.com/multica-ai/andrej-karpathy-skills",
-      "license": "MIT (declared in plugin.json and SKILL.md; the repository has no LICENSE file)",
+      "license": "MIT (plugin.json과 SKILL.md에 표기. 저장소에 LICENSE 파일은 없음)",
       "layer": "always-on",
       "slot": "coding-principles",
       "capabilities": ["coding-principles", "surgical-changes", "simplicity"],
-      "use_when": ["Coding work where the AI tends to over-build, touch unrelated code, or assume silently."],
-      "skip_when": ["Non-code work."],
+      "use_when": ["AI가 과하게 만들거나, 관계없는 코드를 건드리거나, 말없이 가정하는 일이 잦은 코딩 작업."],
+      "skip_when": ["코드가 아닌 업무."],
       "install": {
         "claude": ["/plugin marketplace add multica-ai/andrej-karpathy-skills", "/plugin install andrej-karpathy-skills@karpathy-skills"],
-        "codex": ["Copy skills/karpathy-guidelines to ~/.codex/skills/karpathy-guidelines"]
+        "codex": ["skills/karpathy-guidelines 폴더를 ~/.codex/skills/karpathy-guidelines 로 복사"]
       },
       "detect": {"plugins": ["andrej-karpathy-skills"], "skills": ["karpathy-guidelines"]},
-      "always_on": "One short skill description. No hooks.",
-      "external_data": "None.",
+      "always_on": "짧은 스킬 설명문 1개. 훅 없음.",
+      "external_data": "없음.",
       "conflicts": [
-        {"with": "superpowers", "type": "contradiction", "detail": "See the superpowers entry.", "resolve": "See the superpowers entry."}
+        {"with": "superpowers", "type": "contradiction", "detail": "superpowers 항목 참고.", "resolve": "superpowers 항목 참고."}
       ],
       "verified": "direct"
     },
     {
       "id": "attention-span",
-      "name": "Attention Span (Attention-kind output style)",
+      "name": "Attention Span (Attention-kind 출력 스타일)",
       "repo": "https://github.com/alexgreensh/attention-span",
-      "license": "AGPL-3.0 (link only; do not copy files into HarnessKit)",
+      "license": "AGPL-3.0 (링크로만 안내하고 HarnessKit에 파일을 복사하지 않는다)",
       "layer": "always-on",
       "slot": "output-style",
       "capabilities": ["answer-format", "conclusion-first", "brevity"],
-      "use_when": ["You want conclusion-first, shorter replies in every session."],
-      "skip_when": ["Another output style is already selected.", "You need long-form drafting as the default."],
+      "use_when": ["모든 세션에서 결론부터, 짧게 답하게 하고 싶을 때."],
+      "skip_when": ["이미 다른 출력 스타일을 쓰고 있을 때.", "긴 초안 작성이 기본인 업무."],
       "install": {
-        "claude": ["/plugin marketplace add alexgreensh/attention-span", "/plugin install attention-span@attention-span", "Then /config -> Output style -> Attention-kind"]
+        "claude": ["/plugin marketplace add alexgreensh/attention-span", "/plugin install attention-span@attention-span", "이후 /config → Output style → Attention-kind"]
       },
       "detect": {"plugins": ["attention-span"], "output_styles": ["attention-kind"]},
-      "always_on": "When selected, the Attention-kind output style (~8.7k chars) is part of every turn's system prompt. Four skill descriptions. No hooks.",
-      "external_data": "None (PRIVACY.md: no telemetry, no network calls, no hooks).",
+      "always_on": "선택하면 Attention-kind 출력 스타일(약 8.7천 자)이 매 턴 시스템 프롬프트에 들어간다. 스킬 설명문 4개. 훅 없음.",
+      "external_data": "없음 (PRIVACY.md: 텔레메트리·네트워크 호출·훅 없음).",
       "conflicts": [
-        {"with": "superpowers", "type": "contradiction", "detail": "See the superpowers entry.", "resolve": "See the superpowers entry."}
+        {"with": "superpowers", "type": "contradiction", "detail": "superpowers 항목 참고.", "resolve": "superpowers 항목 참고."}
       ],
       "verified": "direct"
     },
@@ -124,33 +124,33 @@
       "layer": "task",
       "role": "korean-writing",
       "capabilities": ["korean-writing", "humanize", "translationese-fix"],
-      "use_when": ["Korean reports, posts, or documents that read like AI or translated text."],
-      "skip_when": ["Fact checking (it rewrites style only).", "Non-Korean text."],
+      "use_when": ["AI가 쓴 티나 번역투가 나는 한국어 보고서·게시글·문서."],
+      "skip_when": ["사실 확인 (문체만 고친다).", "한국어가 아닌 글."],
       "install": {
         "claude": ["/plugin marketplace add epoko77-ai/im-not-ai", "/plugin install humanize-korean@im-not-ai"],
         "codex": ["git clone https://github.com/epoko77-ai/im-not-ai && ./install.sh --codex-only"]
       },
       "detect": {"plugins": ["humanize-korean"], "skills": ["humanize-korean"]},
-      "always_on": "Two model-invocable skill descriptions plus nine subagent descriptions (~3.3k chars). Six of the nine agents maintain the plugin itself (taxonomy, scholarship, metrics, release) and are rarely needed by users.",
-      "external_data": "None found.",
+      "always_on": "모델이 부를 수 있는 스킬 설명문 2개와 서브에이전트 설명문 9개(약 3.3천 자). 9개 중 6개는 플러그인 자체를 관리하는 에이전트(분류 체계, 학술 인용, 지표, 릴리스)라 사용자가 쓸 일이 드물다.",
+      "external_data": "확인된 것 없음.",
       "conflicts": [],
       "verified": "direct"
     },
     {
       "id": "document-skills",
-      "name": "Anthropic document skills (docx, xlsx, pptx, pdf)",
+      "name": "Anthropic 문서 스킬 (docx, xlsx, pptx, pdf)",
       "repo": "https://github.com/anthropics/skills",
-      "license": "Apache-2.0 (per skill folder)",
+      "license": "Apache-2.0 (스킬 폴더별)",
       "layer": "task",
       "role": "office-docs",
       "capabilities": ["docx", "xlsx", "pptx", "pdf"],
-      "use_when": ["Creating or editing Word, Excel, PowerPoint, or PDF files."],
-      "skip_when": ["HWP documents (use kordoc).", "Machines where LibreOffice cannot be installed."],
+      "use_when": ["Word, Excel, PowerPoint, PDF 파일을 만들거나 고칠 때."],
+      "skip_when": ["HWP 문서 (kordoc 사용).", "LibreOffice를 설치할 수 없는 PC."],
       "install": {"claude": ["/plugin marketplace add anthropics/skills", "/plugin install document-skills@anthropic-agent-skills"]},
       "requires": ["Python", "LibreOffice", "pandoc", "Node.js"],
       "detect": {"plugins": ["document-skills"], "skills": ["docx", "xlsx", "pptx", "pdf"]},
-      "always_on": "Four skill descriptions. No hooks.",
-      "external_data": "None.",
+      "always_on": "스킬 설명문 4개. 훅 없음.",
+      "external_data": "없음.",
       "conflicts": [],
       "verified": "survey"
     },
@@ -162,15 +162,15 @@
       "layer": "task",
       "role": "hwp",
       "capabilities": ["hwp-read", "hwpx-write", "form-fill", "diff"],
-      "use_when": ["Reading HWP/HWPX, comparing versions, filling forms, writing HWPX."],
-      "skip_when": ["The output must be .docx."],
-      "install": {"claude": ["/plugin marketplace add chrisryugj/kordoc", "/plugin install kordoc@kordoc", "Set KORDOC_OFFLINE=1 to block all network access"]},
+      "use_when": ["HWP/HWPX 읽기, 신구대조, 양식 채우기, HWPX 작성."],
+      "skip_when": ["결과물이 .docx여야 할 때."],
+      "install": {"claude": ["/plugin marketplace add chrisryugj/kordoc", "/plugin install kordoc@kordoc", "KORDOC_OFFLINE=1 로 외부 통신 차단"]},
       "requires": ["Node.js 20+"],
       "detect": {"plugins": ["kordoc"], "skills": ["kordoc"]},
-      "always_on": "One skill description. No hooks.",
-      "external_data": "OCR model download once (huggingface) and optional webhook; KORDOC_OFFLINE=1 blocks both.",
+      "always_on": "스킬 설명문 1개. 훅 없음.",
+      "external_data": "OCR 모델 최초 1회 다운로드(huggingface)와 선택 기능인 webhook. KORDOC_OFFLINE=1이면 둘 다 막힌다.",
       "conflicts": [
-        {"with": "k-skill", "type": "role", "detail": "k-skill's hwp skill wraps kordoc.", "resolve": "Use kordoc directly."}
+        {"with": "k-skill", "type": "role", "detail": "k-skill의 hwp 스킬은 kordoc을 감싼 것이다.", "resolve": "kordoc을 직접 쓴다."}
       ],
       "verified": "survey"
     },
@@ -182,15 +182,15 @@
       "layer": "task",
       "role": "library-docs",
       "capabilities": ["library-docs", "versioned-api-docs"],
-      "use_when": ["Writing code against a library whose API changes between versions."],
-      "skip_when": ["General research or standards documents (Context7 indexes software libraries).", "Code that must not leave the company: queries go to context7.com."],
+      "use_when": ["버전마다 API가 바뀌는 라이브러리로 코드를 짤 때."],
+      "skip_when": ["일반 자료 조사나 표준 문서 (Context7은 소프트웨어 라이브러리 문서만 다룬다).", "회사 밖으로 나가면 안 되는 코드: 질의가 context7.com으로 전송된다."],
       "install": {
         "claude": ["/plugin install context7@claude-plugins-official"],
-        "codex": ["npx ctx7 setup (Node.js 22.13+)"]
+        "codex": ["npx ctx7 setup (Node.js 22.13 이상)"]
       },
       "detect": {"plugins": ["context7"], "mcp": ["context7"]},
-      "always_on": "MCP tool names only.",
-      "external_data": "Queries are sent to context7.com.",
+      "always_on": "MCP 도구 이름만.",
+      "external_data": "질의 내용이 context7.com으로 전송된다.",
       "conflicts": [],
       "verified": "direct"
     },
@@ -198,17 +198,17 @@
       "id": "tob-static-analysis",
       "name": "Trail of Bits static-analysis",
       "repo": "https://github.com/trailofbits/skills",
-      "license": "CC-BY-SA-4.0 (link only)",
+      "license": "CC-BY-SA-4.0 (링크로만 안내)",
       "layer": "task",
       "role": "static-analysis",
       "capabilities": ["codeql", "semgrep", "sarif-triage"],
-      "use_when": ["Running CodeQL/Semgrep or triaging SARIF results."],
-      "skip_when": ["No CodeQL/Semgrep CLI available."],
+      "use_when": ["CodeQL·Semgrep을 돌리거나 SARIF 결과를 분류할 때."],
+      "skip_when": ["CodeQL·Semgrep CLI가 없을 때."],
       "install": {"claude": ["/plugin marketplace add trailofbits/skills", "/plugin install static-analysis@trailofbits"]},
-      "requires": ["codeql or semgrep CLI"],
+      "requires": ["codeql 또는 semgrep CLI"],
       "detect": {"plugins": ["static-analysis"]},
-      "always_on": "Skill descriptions only.",
-      "external_data": "None.",
+      "always_on": "스킬 설명문만.",
+      "external_data": "없음.",
       "conflicts": [],
       "verified": "survey"
     },
@@ -216,16 +216,16 @@
       "id": "tob-fp-check",
       "name": "Trail of Bits fp-check",
       "repo": "https://github.com/trailofbits/skills",
-      "license": "CC-BY-SA-4.0 (link only)",
+      "license": "CC-BY-SA-4.0 (링크로만 안내)",
       "layer": "task",
       "role": "false-positive-triage",
       "capabilities": ["false-positive-check"],
-      "use_when": ["A focused session judging whether static-analysis findings are false positives."],
-      "skip_when": ["Everyday sessions: it adds a Stop hook of type prompt, so an LLM judgment runs at the end of every reply."],
+      "use_when": ["정적 분석 결과가 오탐인지 판정하는 데 집중하는 세션."],
+      "skip_when": ["평소 세션: prompt 유형 Stop 훅이 있어 모든 응답이 끝날 때마다 LLM 판정이 돈다."],
       "install": {"claude": ["/plugin marketplace add trailofbits/skills", "/plugin install fp-check@trailofbits"]},
       "detect": {"plugins": ["fp-check"]},
-      "always_on": "Stop hook (type: prompt) on every reply while enabled.",
-      "external_data": "None.",
+      "always_on": "켜져 있는 동안 모든 응답 끝에 Stop 훅(prompt 유형)이 실행된다.",
+      "external_data": "없음.",
       "conflicts": [],
       "verified": "survey"
     },
@@ -233,16 +233,16 @@
       "id": "tob-test-design",
       "name": "Trail of Bits mutation-testing / property-based-testing",
       "repo": "https://github.com/trailofbits/skills",
-      "license": "CC-BY-SA-4.0 (link only)",
+      "license": "CC-BY-SA-4.0 (링크로만 안내)",
       "layer": "task",
       "role": "test-design",
       "capabilities": ["mutation-testing", "property-based-testing"],
-      "use_when": ["Checking how strong an existing test suite is, or adding property tests."],
-      "skip_when": ["The language or framework is not supported by the tools."],
+      "use_when": ["기존 테스트가 얼마나 튼튼한지 점검하거나 속성 기반 테스트를 추가할 때."],
+      "skip_when": ["도구가 지원하지 않는 언어나 프레임워크."],
       "install": {"claude": ["/plugin marketplace add trailofbits/skills", "/plugin install mutation-testing@trailofbits", "/plugin install property-based-testing@trailofbits"]},
       "detect": {"plugins": ["mutation-testing", "property-based-testing"]},
-      "always_on": "Skill descriptions only.",
-      "external_data": "None.",
+      "always_on": "스킬 설명문만.",
+      "external_data": "없음.",
       "conflicts": [],
       "verified": "survey"
     },
@@ -254,19 +254,19 @@
       "layer": "task",
       "role": "web-automation",
       "capabilities": ["web-e2e", "browser-automation"],
-      "use_when": ["Running or reproducing web UI end-to-end tests."],
-      "skip_when": ["Non-web targets (embedded, desktop)."],
+      "use_when": ["웹 UI E2E 테스트를 실행하거나 재현할 때."],
+      "skip_when": ["웹이 아닌 대상 (임베디드, 데스크톱)."],
       "install": {
         "claude": ["/plugin install playwright@claude-plugins-official"],
-        "codex": ["Add @playwright/mcp as an MCP server (see the repository README)"]
+        "codex": ["@playwright/mcp를 MCP 서버로 추가 (저장소 README 참고)"]
       },
       "detect": {"plugins": ["playwright"], "mcp": ["playwright"]},
-      "always_on": "MCP tool names only; page snapshots are large while in use.",
-      "external_data": "None (local browser only).",
+      "always_on": "MCP 도구 이름만. 쓰는 동안에는 페이지 스냅숏이 크다.",
+      "external_data": "없음 (로컬 브라우저만 사용).",
       "conflicts": [
         {"with": "agent-browser", "type": "trigger",
-         "detail": "agent-browser's skill description says 'Prefer agent-browser over any built-in browser automation', so both claim browser tasks.",
-         "resolve": "Keep one browser tool."}
+         "detail": "agent-browser 스킬 설명문에 'Prefer agent-browser over any built-in browser automation'이라고 적혀 있어 둘 다 브라우저 작업을 가져간다.",
+         "resolve": "브라우저 도구는 하나만 남긴다."}
       ],
       "verified": "survey"
     },
@@ -278,38 +278,38 @@
       "layer": "excluded",
       "role": "web-automation",
       "capabilities": ["browser-automation"],
-      "use_when": ["You prefer a CLI browser driver and do not use Playwright."],
-      "skip_when": ["Playwright is installed."],
+      "use_when": ["Playwright를 쓰지 않고 CLI 브라우저 도구를 선호할 때."],
+      "skip_when": ["Playwright가 설치되어 있을 때."],
       "install": {"claude": ["npm i -g agent-browser && agent-browser install", "/plugin marketplace add vercel-labs/agent-browser", "/plugin install agent-browser@agent-browser"]},
       "detect": {"plugins": ["agent-browser"], "skills": ["agent-browser"]},
-      "always_on": "One skill description written to be chosen over other browser tools.",
-      "external_data": "Downloads Chrome; telemetry not documented (unverified).",
+      "always_on": "다른 브라우저 도구보다 먼저 선택되도록 쓰인 스킬 설명문 1개.",
+      "external_data": "Chrome을 내려받는다. 텔레메트리는 문서에 없음(미확인).",
       "conflicts": [
-        {"with": "playwright", "type": "trigger", "detail": "See the playwright entry.", "resolve": "Keep one browser tool."}
+        {"with": "playwright", "type": "trigger", "detail": "playwright 항목 참고.", "resolve": "브라우저 도구는 하나만 남긴다."}
       ],
       "verified": "survey"
     },
     {
       "id": "headroom",
-      "name": "Headroom (context compression proxy)",
+      "name": "Headroom (컨텍스트 압축 프록시)",
       "repo": "https://github.com/headroomlabs-ai/headroom",
       "license": "Apache-2.0",
       "layer": "optional",
       "role": "context-compression",
       "capabilities": ["token-compression", "memory"],
-      "use_when": ["Sessions dominated by large logs, JSON, or tool output, after confirming company policy allows a local proxy."],
-      "skip_when": ["Short prose work: little to compress.", "Company policy forbids routing API traffic through a local proxy."],
+      "use_when": ["큰 로그·JSON·도구 출력이 많은 세션. 회사 정책상 로컬 프록시가 허용되는지 먼저 확인한다."],
+      "skip_when": ["짧은 글 작업: 압축할 것이 적다.", "API 트래픽을 로컬 프록시로 돌리는 것이 정책상 금지일 때."],
       "install": {
         "claude": ["uv tool install --python 3.13 \"headroom-ai[all]\"", "HEADROOM_TELEMETRY=off headroom wrap claude"],
         "codex": ["uv tool install --python 3.13 \"headroom-ai[all]\"", "HEADROOM_TELEMETRY=off headroom wrap codex"]
       },
       "detect": {"plugins": ["headroom"]},
-      "always_on": "All API traffic passes through a local proxy while wrapped. Its plugin adds SessionStart and PreToolUse hooks.",
-      "external_data": "Anonymous telemetry beacon on by default (turn off with HEADROOM_TELEMETRY=off). Checks PyPI for updates.",
-      "notes": "On the Anthropic path the default cache mode skips automatic --memory injection; --mode token is needed for memory, at the cost of prompt-cache stability.",
+      "always_on": "wrap 상태에서는 모든 API 요청이 로컬 프록시를 거친다. 플러그인은 SessionStart와 PreToolUse 훅을 추가한다.",
+      "external_data": "익명 텔레메트리가 기본으로 켜져 있다(HEADROOM_TELEMETRY=off로 끔). PyPI에서 업데이트를 확인한다.",
+      "notes": "Anthropic 경로의 기본 cache 모드에서는 --memory를 줘도 기억 내용을 자동으로 넣지 않는다. 자동 주입을 원하면 --mode token이 필요하고, 그만큼 프롬프트 캐시가 덜 안정적이 된다.",
       "conflicts": [
-        {"with": "claude-mem", "type": "role", "detail": "Both store and re-inject session memory.", "resolve": "Use one memory system, or Claude Code's built-in auto memory."},
-        {"with": "corporate-proxy", "type": "side-effect", "detail": "Rewrites the API base URL; may clash with a company proxy or gateway.", "resolve": "Check network policy first."}
+        {"with": "claude-mem", "type": "role", "detail": "둘 다 세션 기억을 저장하고 다시 주입한다.", "resolve": "메모리 시스템은 하나만 쓰거나 Claude Code 내장 auto memory를 쓴다."},
+        {"with": "corporate-proxy", "type": "side-effect", "detail": "API 기본 주소를 바꾸므로 회사 프록시나 게이트웨이와 부딪힐 수 있다.", "resolve": "네트워크 정책을 먼저 확인한다."}
       ],
       "verified": "direct"
     },
@@ -322,32 +322,32 @@
       "role": "memory",
       "capabilities": ["memory"],
       "use_when": [],
-      "skip_when": ["Company environments: sends recorded activity to an external LLM; analytics on by default."],
+      "skip_when": ["회사 환경: 작업 기록을 외부 LLM으로 보내고 분석 기능이 기본으로 켜져 있다."],
       "install": {"claude": ["/plugin marketplace add thedotmack/claude-mem", "/plugin install claude-mem"]},
       "detect": {"plugins": ["claude-mem"]},
-      "always_on": "Nine hooks including SessionStart (injects past records) and Pre/PostToolUse (records every tool call).",
-      "external_data": "Recorded activity sent to an external LLM provider; analytics on by default.",
+      "always_on": "훅 9개. SessionStart(과거 기록 주입), Pre/PostToolUse(모든 도구 호출 기록) 포함.",
+      "external_data": "작업 기록을 외부 LLM 제공자로 보낸다. 분석 기능 기본 켜짐.",
       "conflicts": [
-        {"with": "headroom", "type": "role", "detail": "See the headroom entry.", "resolve": "Use one memory system."}
+        {"with": "headroom", "type": "role", "detail": "headroom 항목 참고.", "resolve": "메모리 시스템은 하나만 쓴다."}
       ],
       "verified": "survey"
     },
     {
       "id": "k-skill",
-      "name": "k-skill (full install)",
+      "name": "k-skill (전체 설치)",
       "repo": "https://github.com/NomaDamas/k-skill",
       "license": "MIT",
       "layer": "excluded",
       "role": "korean-services",
       "capabilities": ["korean-public-services", "hwp"],
-      "use_when": ["Install only the single skill you need, not the bundle."],
-      "skip_when": ["Full install: 134 skill descriptions load in every session."],
+      "use_when": ["묶음 전체가 아니라 필요한 스킬 하나만 설치할 때."],
+      "skip_when": ["전체 설치: 스킬 설명문 134개가 매 세션 올라간다."],
       "install": {"claude": ["npx --yes skills add NomaDamas/k-skill --skill <name> -g"]},
       "detect": {"plugins": ["k-skill"]},
-      "always_on": "134 skill descriptions when fully installed.",
-      "external_data": "Many skills call public web APIs.",
+      "always_on": "전체 설치 시 스킬 설명문 134개.",
+      "external_data": "여러 스킬이 공공 웹 API를 호출한다.",
       "conflicts": [
-        {"with": "kordoc", "type": "role", "detail": "See the kordoc entry.", "resolve": "Use kordoc directly."}
+        {"with": "kordoc", "type": "role", "detail": "kordoc 항목 참고.", "resolve": "kordoc을 직접 쓴다."}
       ],
       "verified": "survey"
     },
@@ -359,12 +359,12 @@
       "layer": "tool",
       "role": "measurement",
       "capabilities": ["token-usage", "cost-report"],
-      "use_when": ["Measuring token use before and after a harness change."],
+      "use_when": ["하네스를 바꾸기 전후의 토큰 사용량을 잴 때."],
       "skip_when": [],
       "install": {"claude": ["npx ccusage@latest --offline"]},
       "detect": {},
-      "always_on": "None (run on demand).",
-      "external_data": "Reads local ~/.claude/projects logs; --offline avoids the online price lookup.",
+      "always_on": "없음 (필요할 때 실행).",
+      "external_data": "로컬 ~/.claude/projects 기록을 읽는다. --offline이면 온라인 가격 조회를 하지 않는다.",
       "conflicts": [],
       "verified": "survey"
     },
@@ -376,12 +376,12 @@
       "layer": "tool",
       "role": "skill-security",
       "capabilities": ["skill-security-scan"],
-      "use_when": ["Before installing a skill or plugin that is not in this catalog."],
-      "skip_when": ["LLM mode: it sends file contents to an external model; use --no-llm."],
-      "install": {"claude": ["uv tool install git+https://github.com/NVIDIA/skillspector.git", "Run with --no-llm (see the repository README for the scan command)"]},
+      "use_when": ["카탈로그에 없는 스킬이나 플러그인을 설치하기 전."],
+      "skip_when": ["LLM 모드: 파일 내용을 외부 모델로 보낸다. --no-llm으로 쓴다."],
+      "install": {"claude": ["uv tool install git+https://github.com/NVIDIA/skillspector.git", "--no-llm으로 실행 (점검 명령은 저장소 README 참고)"]},
       "detect": {"mcp": ["skillspector"]},
-      "always_on": "None.",
-      "external_data": "--no-llm: static only, but dependency checks send package names and versions to OSV.dev.",
+      "always_on": "없음.",
+      "external_data": "--no-llm이면 정적 분석만 한다. 단, 의존성 점검은 패키지 이름과 버전을 OSV.dev로 보낸다.",
       "conflicts": [],
       "verified": "survey"
     }

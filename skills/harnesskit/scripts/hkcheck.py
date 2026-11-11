@@ -160,7 +160,7 @@ def check(env, comps, catalog, max_review=8):
                 seen.add(pair)
                 sev = "high" if cf["type"] in ("contradiction", "trigger", "slot") else "medium"
                 detail, resolve = cf["detail"], cf["resolve"]
-                if detail.startswith("See the "):
+                if detail.endswith("항목 참고."):
                     back = next((x for x in by_id[other].get("conflicts", []) if x["with"] == cid), None)
                     if back:
                         detail, resolve = back["detail"], back["resolve"]
@@ -185,20 +185,20 @@ def check(env, comps, catalog, max_review=8):
             if field == "slot":
                 sev = "high" if v in EXCLUSIVE_SLOTS else "medium"
                 out.append(finding("slot", sev, [label(i) for i in sorted(ids)],
-                                   f"Several items occupy the '{v}' slot.",
-                                   "Keep one per slot, or write which one wins in a precedence line."))
+                                   f"'{v}' 자리를 여러 도구가 차지한다.",
+                                   "자리마다 하나만 남기거나, 어느 쪽이 이기는지 우선순위 한 줄을 적는다."))
             else:
                 out.append(finding("role", "medium", [label(i) for i in sorted(ids)],
-                                   f"Several items do the same job ('{v}').",
-                                   "Keep the one that fits the project; disable the rest."))
+                                   f"같은 일('{v}')을 하는 도구가 여럿이다.",
+                                   "프로젝트에 맞는 하나를 남기고 나머지는 끈다."))
 
     # 3. output style slot from the scan itself
     active = env["claude"]["settings"].get("outputStyle")
     styled = [c for c in comps if c["output_styles"] and c["source"] == "candidate"]
     if active and styled:
         out.append(finding("slot", "medium", [active + " (active)"] + [c["label"] for c in styled],
-                           "An output style is already active and a candidate brings another one; only one can be selected.",
-                           "Decide which style stays selected."))
+                           "이미 출력 스타일이 선택돼 있는데 후보가 다른 출력 스타일을 가져온다. 하나만 선택할 수 있다.",
+                           "어떤 스타일을 쓸지 정한다."))
 
     # 4. session bootstrap injections
     boots = []
@@ -209,8 +209,8 @@ def check(env, comps, catalog, max_review=8):
                 boots.append((c, est))
     if len(boots) > 1:
         out.append(finding("slot", "medium", [c["label"] for c, _ in boots],
-                           "More than one SessionStart hook injects instructions into every session; their rules stack and may contradict.",
-                           "Read the injected files (evidence) and keep one bootstrap.",
+                           "세션을 시작할 때마다 지침을 주입하는 SessionStart 훅이 둘 이상이다. 규칙이 쌓이고 서로 어긋날 수 있다.",
+                           "주입되는 파일(근거)을 읽고 시작 지침은 하나만 남긴다.",
                            [p for _, e in boots for p in e.get("files", [])]))
 
     # 5. duplicate skill names across components
@@ -222,8 +222,8 @@ def check(env, comps, catalog, max_review=8):
         owners = {c["key"] for c, _ in hits}
         if len(owners) > 1:
             out.append(finding("trigger", "high", [c["label"] for c, _ in hits],
-                               f"The skill name '{n}' exists in more than one place, so two copies compete for the same requests.",
-                               "Keep one copy.", [s["path"] for _, s in hits]))
+                               f"'{n}' 스킬이 두 군데 이상 있어 같은 요청을 두고 경쟁한다.",
+                               "하나만 남긴다.", [s["path"] for _, s in hits]))
 
     # 6. heavy always-on cost
     for c in comps:
@@ -231,28 +231,28 @@ def check(env, comps, catalog, max_review=8):
             est = h.get("injects_estimate") or {}
             if est.get("chars", 0) >= 1500:
                 out.append(finding("cost", "low", [c["label"]],
-                                   f"{h['event']} hook injects about {est['chars']} chars (~{est.get('tokens')} tokens) every time it fires (matcher: {h.get('matcher') or 'all'}).",
-                                   "Keep it only where its process is wanted.", est.get("files", [])))
+                                   f"{h['event']} 훅이 실행될 때마다 약 {est['chars']}자(추정 {est.get('tokens')}토큰)를 주입한다 (matcher: {h.get('matcher') or '전체'}).",
+                                   "그 절차가 필요한 프로젝트에서만 켠다.", est.get("files", [])))
             if h.get("type") == "prompt":
                 out.append(finding("cost", "medium", [c["label"]],
-                                   f"A prompt-type {h['event']} hook runs an LLM judgment every time it fires.",
-                                   "Enable only for the sessions that need it."))
+                                   f"prompt 유형 {h['event']} 훅이 실행될 때마다 LLM 판정이 돈다.",
+                                   "필요한 세션에서만 켠다."))
         if len(c["agents"]) >= 6:
             out.append(finding("cost", "low", [c["label"]],
-                               f"Lists {len(c['agents'])} subagent descriptions in every session.",
-                               "Acceptable if the agents are used; otherwise consider disabling the plugin where it is not needed."))
+                               f"서브에이전트 설명문 {len(c['agents'])}개가 매 세션 목록에 올라간다.",
+                               "그 에이전트들을 쓴다면 괜찮다. 쓰지 않는 프로젝트에서는 플러그인을 끄는 것을 검토한다."))
 
     # 7. policy notes
     for cid, cs in present.items():
         e = by_id[cid]
         if e.get("layer") == "excluded":
             out.append(finding("policy", "medium", [label(cid)],
-                               f"Excluded by the catalog: {'; '.join(e.get('skip_when', [])) or e.get('always_on', '')}",
-                               "Remove, or keep only with a reason recorded in harnesskit.lock."))
+                               f"카탈로그 제외 도구: {' '.join(e.get('skip_when', [])) or e.get('always_on', '')}",
+                               "제거하거나, 남긴다면 이유를 harnesskit.lock에 적는다."))
         ext = e.get("external_data", "")
-        if ext and not ext.lower().startswith("none"):
-            out.append(finding("policy", "info", [label(cid)], f"External data: {ext}",
-                               "Confirm this is allowed by company policy."))
+        if ext and not ext.startswith(("없음", "확인된 것 없음")):
+            out.append(finding("policy", "info", [label(cid)], f"외부 전송: {ext}",
+                               "회사 정책상 허용되는지 확인한다."))
 
     # 8. review layer: skills from different sources that claim the same intent
     pool = []
@@ -273,12 +273,12 @@ def check(env, comps, catalog, max_review=8):
     scored.sort(key=lambda x: -x[0])
     for _, c1, s1, c2, s2, common in scored[:max_review]:
         out.append(finding("trigger?", "review", [f"{c1['label']}:{s1['name']}", f"{c2['label']}:{s2['name']}"],
-                           f"Both claim the same intent ({', '.join(sorted(common))}). Possible trigger overlap or role duplication.",
-                           "Read both SKILL.md files and judge with conflict-rules.md.",
+                           f"둘 다 같은 의도({', '.join(sorted(common))})를 주장한다. 트리거 겹침이나 역할 중복일 수 있다.",
+                           "두 SKILL.md를 읽고 conflict-rules.md 기준으로 판정한다.",
                            [s1["path"], s2["path"]], source="heuristic"))
     if len(scored) > max_review:
-        out.append(finding("trigger?", "info", [f"{len(scored) - max_review} more pairs"],
-                           "More intent overlaps exist than shown.", "Re-run with a narrower candidate set if needed."))
+        out.append(finding("trigger?", "info", [f"그 외 {len(scored) - max_review}쌍"],
+                           "표시한 것보다 의도가 겹치는 쌍이 더 있다.", "필요하면 후보를 좁혀 다시 실행한다."))
 
     out.sort(key=lambda f: SEVERITY_ORDER.get(f["severity"], 9))
     return out

@@ -142,7 +142,7 @@ class CheckTests(unittest.TestCase):
               "verification-before-completion", "Use before claiming work is complete")
         a = self.scan_repo("sp", fake_bootstrap_plugin)
         data = self.check("--candidate-scan", a)
-        dup = [f for f in data["findings"] if "exists in more than one place" in f["detail"]]
+        dup = [f for f in data["findings"] if "두 군데 이상" in f["detail"]]
         self.assertEqual(len(dup), 1)
 
     def test_harnesskit_vs_original_harness(self):
