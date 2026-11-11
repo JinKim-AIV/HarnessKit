@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Query the HarnessKit catalog without loading the whole file into context.
 
-  hkcatalog.py find [--role R ...] [--cap C ...] [--text WORDS] [--layer L ...]
+  hkcatalog.py find [--role R ...] [--cap C ...] [--category C] [--text WORDS] [--layer L ...]
   hkcatalog.py show ID [ID ...]
   hkcatalog.py roles
 
@@ -34,7 +34,9 @@ def short(e):
     }
 
 
-def matches(e, roles, caps, words, layers):
+def matches(e, roles, caps, words, layers, category=None):
+    if category and e.get("category") != category:
+        return False
     if roles and (e.get("role") or e.get("slot")) not in roles:
         return False
     if caps and not set(caps) & set(e.get("capabilities", [])):
@@ -55,6 +57,7 @@ def main(argv=None):
     f.add_argument("--cap", action="append", default=[])
     f.add_argument("--layer", action="append", default=[])
     f.add_argument("--text", default="")
+    f.add_argument("--category")
     s = sub.add_parser("show")
     s.add_argument("ids", nargs="+")
     sub.add_parser("roles")
@@ -68,7 +71,7 @@ def main(argv=None):
     if a.cmd == "find":
         hits = []
         for e in entries:
-            if matches(e, a.role, a.cap, a.text.split(), a.layer):
+            if matches(e, a.role, a.cap, a.text.split(), a.layer, a.category):
                 h = short(e)
                 h["conflicts_with"] = sorted(set(h["conflicts_with"]) | reverse.get(e["id"], set()))
                 hits.append(h)

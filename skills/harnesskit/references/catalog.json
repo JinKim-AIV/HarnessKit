@@ -1,5 +1,5 @@
 {
-  "version": "2026-11-11b",
+  "version": "2026-11-11c",
   "about": "HarnessKit 큐레이션 카탈로그. verified=direct는 저장소 파일을 직접 읽고 작성한 항목, verified=survey는 조사 과정에서 저장소 문서를 확인한 항목이다. survey 항목의 설치 명령은 쓰기 전에 원 저장소 README로 한 번 더 확인한다. 원문 인용은 영어 그대로 둔다.",
   "conflict_types": {
     "trigger": "같은 요청에 둘 이상이 반응해, 실행할 때마다 어느 쪽이 불릴지 달라진다.",
@@ -556,7 +556,8 @@
           "resolve": "브라우저 도구는 하나만 남긴다."
         }
       ],
-      "verified": "survey"
+      "verified": "survey",
+      "category": "ui-ux"
     },
     {
       "id": "agent-browser",
@@ -860,7 +861,8 @@
         }
       ],
       "verified": "direct",
-      "checked": "2026-11-11"
+      "checked": "2026-11-11",
+      "category": "ui-ux"
     },
     {
       "id": "example-skills",
@@ -1001,7 +1003,8 @@
       "external_data": "없음 (CSS와 JS를 모두 인라인한 단일 HTML. SKILL.md: 'No external dependencies.').",
       "conflicts": [],
       "verified": "direct",
-      "checked": "2026-11-11"
+      "checked": "2026-11-11",
+      "category": "ui-ux"
     },
     {
       "id": "impeccable",
@@ -1081,7 +1084,8 @@
         }
       ],
       "verified": "direct",
-      "checked": "2026-11-11"
+      "checked": "2026-11-11",
+      "category": "ui-ux"
     },
     {
       "id": "ui-ux-pro-max",
@@ -1172,7 +1176,8 @@
         }
       ],
       "verified": "direct",
-      "checked": "2026-11-11"
+      "checked": "2026-11-11",
+      "category": "ui-ux"
     },
     {
       "id": "web-design-guidelines",
@@ -1235,7 +1240,8 @@
         }
       ],
       "verified": "direct",
-      "checked": "2026-11-11"
+      "checked": "2026-11-11",
+      "category": "ui-ux"
     },
     {
       "id": "chrome-devtools-mcp",
@@ -1316,7 +1322,8 @@
         }
       ],
       "verified": "direct",
-      "checked": "2026-11-11"
+      "checked": "2026-11-11",
+      "category": "ui-ux"
     },
     {
       "id": "drawio",
@@ -1727,7 +1734,8 @@
         }
       ],
       "verified": "direct",
-      "checked": "2026-11-11"
+      "checked": "2026-11-11",
+      "category": "ui-ux"
     },
     {
       "id": "shadcn",
@@ -1785,7 +1793,8 @@
         }
       ],
       "verified": "direct",
-      "checked": "2026-11-11"
+      "checked": "2026-11-11",
+      "category": "ui-ux"
     },
     {
       "id": "official-code-review",
@@ -2762,6 +2771,162 @@
           "type": "trigger",
           "detail": "comprehensive-review의 code-reviewer는 'Use PROACTIVELY for code quality assurance.'이고, pr-review-toolkit의 code-reviewer도 'This agent should be used proactively after writing or modifying code'다. git-pr-workflows, code-documentation에도 code-reviewer 에이전트가 따로 있다.",
           "resolve": "자동으로 도는 리뷰 에이전트는 한 플러그인에서만 쓴다."
+        }
+      ],
+      "verified": "direct",
+      "checked": "2026-11-11"
+    },
+    {
+      "id": "web-design-reviewer",
+      "name": "Web Design Reviewer (GitHub awesome-copilot)",
+      "repo": "https://github.com/github/awesome-copilot (skills/web-design-reviewer)",
+      "license": "MIT",
+      "layer": "task",
+      "role": "ui-visual-review",
+      "category": "ui-ux",
+      "capabilities": [
+        "visual-review",
+        "responsive-check",
+        "layout-check",
+        "screenshot-review",
+        "design-fix"
+      ],
+      "use_when": [
+        "실행 중인 웹 페이지를 브라우저로 열어 반응형, 레이아웃 깨짐, 시각적 일관성을 화면 기준으로 확인할 때.",
+        "디자인 QA 에이전트(references/roles/ui-ux-reviewer.md)의 화면 검토 단계."
+      ],
+      "skip_when": [
+        "브라우저 자동화 도구(Playwright, Chrome DevTools MCP)가 없거나 페이지를 띄울 수 없을 때.",
+        "고치지 않고 검토만 해야 하는 리뷰어 역할: 설명문이 'performs fixes at the source code level'이라 수정까지 하려 한다. 리뷰어로 쓸 때는 수정 단계를 빼라고 지시한다."
+      ],
+      "install": {
+        "claude": [
+          "새 임시 폴더에 git clone --depth 1 https://github.com/github/awesome-copilot 한 뒤 skills/web-design-reviewer 폴더를 ~/.claude/skills/web-design-reviewer 로 복사"
+        ],
+        "codex": [
+          "같은 폴더를 ~/.codex/skills/web-design-reviewer 로 복사 (Agent Skills 형식)"
+        ]
+      },
+      "requires": [
+        "브라우저 자동화 도구 (Playwright MCP, Chrome DevTools MCP, 또는 Python Playwright)",
+        "실행 중인 웹 페이지나 정적 HTML"
+      ],
+      "detect": {
+        "skills": [
+          "web-design-reviewer"
+        ]
+      },
+      "always_on": "스킬 설명문 1개(약 360자). 훅 없음.",
+      "external_data": "없음. 검토 대상이 외부 사이트면 브라우저가 그 사이트에 접속한다.",
+      "security": "SkillSpector 2.12.0 (--no-llm, 설치 범위) 2026-11-11 점검: SAFE, 7점. MEDIUM 1건(SKILL.md:342 Excessive Agency, 확인 없는 대규모 리팩터링을 하지 말라는 금지 목록 줄).",
+      "conflicts": [
+        {
+          "with": "design-review",
+          "type": "trigger",
+          "detail": "web-design-reviewer는 'review website design', 'check the UI'에, design-review는 'review this design', \"what's wrong with this UI\"에 반응해 같은 디자인 리뷰 요청을 다툰다. 앞쪽은 화면을 보고 코드를 고치고, 뒤쪽은 점수와 개선안을 낸다.",
+          "resolve": "화면 결함 확인은 web-design-reviewer, UX 비평 보고서는 design-review로 나눠 디자인 QA 에이전트의 단계별 사용 스킬에 적는다. 둘 중 하나만 둘 거면 화면을 볼 수 있는 쪽을 남긴다."
+        }
+      ],
+      "verified": "direct",
+      "checked": "2026-11-11"
+    },
+    {
+      "id": "design-review",
+      "name": "Design Review (Humbleteam)",
+      "repo": "https://github.com/humbleteam/design-review",
+      "license": "MIT",
+      "layer": "task",
+      "role": "ux-critique",
+      "category": "ui-ux",
+      "capabilities": [
+        "ux-critique",
+        "heuristic-review",
+        "wcag-citation",
+        "variant-comparison"
+      ],
+      "use_when": [
+        "스크린샷·URL·HTML 조각을 Nielsen 휴리스틱과 WCAG 2.2 근거로 비평해 0~4점과 우선순위 문제(최대 6개, Before/After/Why)를 받을 때.",
+        "시안 두 개 이상 중 어느 쪽이 나은지 근거와 함께 고를 때."
+      ],
+      "skip_when": [
+        "출시 전 합격/불합격 판정이 필요할 때 (design-qa).",
+        "코드 규칙 위반을 파일·줄 단위로 찾을 때 (web-design-guidelines)."
+      ],
+      "install": {
+        "claude": [
+          "git clone --depth 1 https://github.com/humbleteam/design-review ~/.claude/skills/design-review"
+        ],
+        "codex": [
+          "git clone --depth 1 https://github.com/humbleteam/design-review ~/.codex/skills/design-review (README는 다른 에이전트에 SKILL.md를 붙여 넣으라고 안내한다. 형식이 같아 스킬 폴더로도 쓸 수 있다)"
+        ]
+      },
+      "requires": [],
+      "detect": {
+        "skills": [
+          "design-review"
+        ]
+      },
+      "always_on": "스킬 설명문 1개(약 715자). 훅 없음. 본문이 약 3만 자라 불릴 때 컨텍스트를 많이 쓴다.",
+      "external_data": "없음.",
+      "security": "SkillSpector 2.12.0 (--no-llm, 설치 범위) 2026-11-11 점검: CAUTION, 29점. HIGH 1건(SKILL.md:68 Anti-Refusal)은 장황하게 설명하지 말라는 짧은 문체 지시 한 문장이 걸린 것으로 내용상 오탐에 가깝다. MEDIUM 1건(SKILL.md:208).",
+      "notes": "design-qa와는 설명문에서 역할을 나눠 두었다(design-qa: 'Skip for style critique - use design-review instead').",
+      "conflicts": [
+        {
+          "with": "web-design-reviewer",
+          "type": "trigger",
+          "detail": "web-design-reviewer 항목 참고.",
+          "resolve": "web-design-reviewer 항목 참고."
+        }
+      ],
+      "verified": "direct",
+      "checked": "2026-11-11"
+    },
+    {
+      "id": "design-qa",
+      "name": "Design QA (Humbleteam)",
+      "repo": "https://github.com/humbleteam/design-qa",
+      "license": "MIT",
+      "layer": "task",
+      "role": "design-qa-gate",
+      "category": "ui-ux",
+      "capabilities": [
+        "pre-ship-gate",
+        "wcag-contrast",
+        "touch-targets",
+        "breakpoints",
+        "keyboard-paths",
+        "state-coverage"
+      ],
+      "use_when": [
+        "출시·머지 전에 화면이나 PR의 HTML/CSS를 여섯 항목(컴포넌트 상태, WCAG 2.2 대비, 터치 영역, 브레이크포인트, 키보드 경로, 문구)으로 합격/불합격 판정할 때."
+      ],
+      "skip_when": [
+        "스타일 비평이 필요할 때 (설명문: 'Skip for style critique - use design-review instead').",
+        "React Native 같은 웹이 아닌 앱 화면을 자동으로 확인해야 하는데 화면 캡처 환경이 없을 때."
+      ],
+      "install": {
+        "claude": [
+          "git clone --depth 1 https://github.com/humbleteam/design-qa ~/.claude/skills/design-qa"
+        ],
+        "codex": [
+          "git clone --depth 1 https://github.com/humbleteam/design-qa ~/.codex/skills/design-qa"
+        ]
+      },
+      "requires": [],
+      "detect": {
+        "skills": [
+          "design-qa"
+        ]
+      },
+      "always_on": "스킬 설명문 1개(약 420자). 훅 없음. 본문 약 2.3만 자.",
+      "external_data": "없음.",
+      "security": "SkillSpector 2.12.0 (--no-llm, 설치 범위) 2026-11-11 점검: SAFE, 7점. MEDIUM 1건(CHANGELOG.md:203, 문서).",
+      "conflicts": [
+        {
+          "with": "web-design-guidelines",
+          "type": "role",
+          "detail": "design-qa는 'checks states, WCAG 2.2 contrast, touch targets, breakpoints, and keyboard paths'이고, web-design-guidelines도 접근성·포커스·반응형 규칙을 본다. 같은 문제를 두 번 보고하게 된다. 다만 web-design-guidelines는 코드를 file:line으로, design-qa는 화면·HTML을 합격/불합격 표로 본다.",
+          "resolve": "디자인 QA 에이전트에서는 코드 단계에 web-design-guidelines, 출시 기준 단계에 design-qa를 두고, 겹치는 지적은 보고서에서 하나로 합친다."
         }
       ],
       "verified": "direct",

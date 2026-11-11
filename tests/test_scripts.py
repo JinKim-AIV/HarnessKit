@@ -315,6 +315,13 @@ class SelfInspectTests(unittest.TestCase):
 
 
 class CatalogTests(unittest.TestCase):
+    def test_category_filter(self):
+        out = subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "hkcatalog.py"), "find", "--category", "ui-ux"],
+                             capture_output=True, text=True, check=True).stdout
+        ids = {json.loads(l)["id"] for l in out.splitlines() if l.strip() and l.strip() != "{}"}
+        self.assertTrue({"web-design-reviewer", "design-qa", "design-review", "frontend-design"} <= ids)
+        self.assertNotIn("im-not-ai", ids)
+
     def test_catalog_is_consistent(self):
         with open(os.path.join(ROOT, "skills", "harnesskit", "references", "catalog.json"), encoding="utf-8") as f:
             cat = json.load(f)

@@ -52,7 +52,7 @@ description: "HarnessKit(킷, kit). 프로젝트나 업무에 맞는 AI 하네�
 2. **카탈로그**: `hkcatalog.py find --role <역할>` 또는 `--text <키워드>`로 찾는다. 검토를 마친 도구라 우선한다. `use_when`, `skip_when`, `requires`, 외부 전송을 보고 거른다.
 3. **바깥(웹)**: 카탈로그와 별개로 매번 찾아본다. 공식 출처(Claude Code는 `anthropics/skills`와 공식 마켓플레이스 `claude-plugins-official`, Codex는 공식 문서의 스킬) → 큐레이션 목록(`hesreallyhim/awesome-claude-code`, `VoltAgent/awesome-agent-skills`) → 일반 검색 순서로 본다. 역량마다 3개, 전체 8개까지만 본다. 결과에는 **카탈로그 밖** 표시를 단다. 웹 검색 도구가 없으면 이 단계는 건너뛰고 그 사실을 알린다.
 
-산출물에 사람이 읽는 한국어 글이 있으면 한국어 윤문 도구(`role: korean-writing`)를 기본 후보에 넣는다. 모은 후보는 출처(설치됨 / 카탈로그 / 카탈로그 밖), 하는 일, 이유를 한 표로 보여 주고 고르게 한다. 같은 역할 후보가 여럿이면 하나를 추천하고, 나머지는 왜 뺐는지 한 줄씩 적는다.
+산출물에 사람이 읽는 한국어 글이 있으면 한국어 윤문 도구(`role: korean-writing`)를 기본 후보에 넣는다. 산출물에 화면(웹 UI, HTML)이 있으면 `hkcatalog.py find --category ui-ux`로 UI 설계·리뷰 도구를 후보에 넣고, 6단계에서 디자인 QA 에이전트(`references/roles/ui-ux-reviewer.md`)를 둔다. 모은 후보는 출처(설치됨 / 카탈로그 / 카탈로그 밖), 하는 일, 이유를 한 표로 보여 주고 고르게 한다. 같은 역할 후보가 여럿이면 하나를 추천하고, 나머지는 왜 뺐는지 한 줄씩 적는다.
 
 **5. 설치 전 점검과 설치**: 고른 도구 중 아직 설치되지 않은 것마다 아래를 차례로 한다.
 1. **받기**: 새로 만든 빈 임시 폴더에 `git clone --depth 1 <저장소>`. 받은 코드는 실행하지 않는다.
