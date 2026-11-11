@@ -1,0 +1,31 @@
+# HarnessKit이 검토하고 허용한 SkillSpector 탐지 항목.
+# 다시 확인하려면:
+#   skillspector scan <harnesskit 폴더> --no-llm --baseline <harnesskit 폴더>/.skillspector-baseline.yaml --show-suppressed
+# 새로 생긴 탐지 항목은 이 파일에 걸리지 않으므로 그대로 드러난다.
+version: 2
+
+rules:
+  - id: "AS1"
+    path: "*scripts/hkscan.py"
+    reason: "설치 현황 스캔이 HarnessKit의 본래 기능이다. ~/.claude, ~/.codex 아래 설정과 스킬 목록을 읽기만 하고 고치지 않는다. ~/.claude.json에서는 MCP 서버 이름만 읽는다."
+  - id: "AS1"
+    path: "*scripts/hklock.py"
+    reason: "사용자 프로젝트 안의 하네스 파일(.claude/agents, .claude/skills, .codex/agents, .agents/skills)의 해시를 기록하고 두 런타임 형식으로 옮긴다. 프로젝트 밖은 건드리지 않는다."
+  - id: "AS[12]"
+    path: "*references/*"
+    reason: "설정 파일 위치, 끄는 방법, 외부 도구가 MCP 설정에 무엇을 등록하는지를 사람에게 안내하는 문서·카탈로그 데이터다. 실행되는 코드가 아니다."
+  - id: "E1"
+    path: "*references/catalog.json"
+    reason: "외부 도구의 설치 명령과 연결 주소를 기록한 카탈로그 데이터다. HarnessKit은 이 주소로 아무것도 보내지 않는다. 각 도구의 외부 전송은 external_data에 적고 설치 전에 사용자에게 알린다."
+  - id: "AS3"
+    path: "*references/*"
+    reason: "출처 표기(Harness v2 파생 문서)와 카탈로그 근거로 다른 스킬 파일 경로를 적은 것이다."
+  - id: "AST4"
+    path: "*scripts/hkinspect.py"
+    reason: "보안 점검 도구 SkillSpector를 고정된 인자(scan, --no-llm, --format json)로 실행한다. 셸을 거치지 않고, 환경 변수 값이 명령에 들어가지 않는다."
+  - id: "LP3"
+    path: "*SKILL.md"
+    reason: "Claude Code의 allowed-tools는 승인 없이 쓸 도구를 정하는 권한 부여 필드라 넓게 선언하지 않는다. 스크립트 실행은 사용자의 권한 설정과 승인을 따른다."
+  - id: "AE1"
+    path: "*SKILL.md"
+    reason: "실행 중에 만들어지는 파일(_workspace/harnesskit/*, harnesskit.lock)을 가리키는 경로라 점검 시점에는 존재하지 않는다."

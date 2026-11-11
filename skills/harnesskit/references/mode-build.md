@@ -404,7 +404,7 @@ Claude는 스킬의 `name`과 `description`을 보고 어떤 스킬을 불러올
 #### 6-7. 외부 스킬 경계와 기준선 **[HK]**
 
 - 6-4의 경계 사례에 연결한 외부 스킬이 반응할 만한 요청을 3개 이상 넣는다. 오케스트레이터와 외부 스킬이 같은 요청을 다투면 오케스트레이터 `description`의 범위를 좁힌다.
-- 효과를 재려면 하네스 적용 전 세션을 기준선으로 남긴다. 토큰은 `npx ccusage@latest --offline`, Claude Code 플러그인별 상시 비용은 `claude plugin details <name>`으로 본다. 측정하지 않은 효과를 숫자로 쓰지 않는다.
+- 효과를 재려면 하네스 적용 전 세션을 기준선으로 남긴다. 토큰은 `npx ccusage@20.0.49 --offline`, Claude Code 플러그인별 상시 비용은 `claude plugin details <name>`으로 본다. 측정하지 않은 효과를 숫자로 쓰지 않는다.
 
 ### 7단계: 운영·유지 보수와 개선
 

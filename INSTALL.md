@@ -19,6 +19,17 @@
 
 업데이트는 `git pull` 뒤에 같은 절차를 다시 따른다. 기존 설치는 `backups/` 폴더로 옮겨 둔다.
 
+## 보안 점검 도구 (필수)
+
+HarnessKit은 외부 스킬·플러그인·MCP를 설치하기 전에 반드시 NVIDIA SkillSpector로 점검하고, 점검할 수 없으면 설치하지 않는다. 설치 출력에 SkillSpector가 없다고 나오면 사용자에게 설치를 권한다.
+
+```
+python3 -m pip install --user uv        # uv가 없을 때
+uv tool install git+https://github.com/NVIDIA/skillspector.git
+```
+
+Python 3.12가 없어도 uv가 알아서 받는다. 점검은 `--no-llm`으로만 돌려 파일 내용을 외부 모델로 보내지 않는다.
+
 ## 제거
 
 `python3 install.py --uninstall` (한쪽만 지우려면 `--target`). 지운 폴더는 `backups/`에 남는다.

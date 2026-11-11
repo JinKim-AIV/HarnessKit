@@ -147,6 +147,9 @@ def main(argv=None):
             print("\n".join(issues))
         else:
             print("\n설치 후 점검: HarnessKit과 부딪히는 도구 없음.")
+    if not (shutil.which("skillspector") or os.path.isfile(os.path.join(HOME, ".local", "bin", "skillspector"))):
+        print("\n보안 점검 도구 SkillSpector가 없습니다. HarnessKit은 점검 없이 외부 스킬을 설치하지 않으므로 미리 설치해 두세요:")
+        print("  uv tool install git+https://github.com/NVIDIA/skillspector.git   (uv가 없으면: python3 -m pip install --user uv)")
     print("\n다음 단계: 새 세션을 열고 프로젝트 폴더에서 '킷으로 이 프로젝트 하네스 만들어줘'라고 요청하세요.")
     print("업데이트: 이 저장소에서 git pull 후 install.py 를 다시 실행하세요.")
 

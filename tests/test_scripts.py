@@ -233,6 +233,87 @@ class LockTests(unittest.TestCase):
         self.assertIn("Read the spec and list risks.", md)
 
 
+FAKE_SKILLSPECTOR = """#!/usr/bin/env python3
+import json, sys
+args = sys.argv[1:]
+assert args[0] == "scan" and "--no-llm" in args and "--format" in args, args
+target = args[1]
+if "evil" in target:
+    rep, code = {"risk_assessment": {"score": 80, "severity": "HIGH", "recommendation": "DO_NOT_INSTALL"},
+                 "issues": [{"id": "PI1", "category": "prompt_injection", "severity": "HIGH", "confidence": 0.9,
+                             "location": {"file": "SKILL.md", "start_line": 3}, "surface": "instructions"}]}, 1
+elif "partial" in target:
+    rep, code = {"risk_assessment": {"score": 5, "severity": "LOW", "recommendation": "SAFE"},
+                 "analysis_completeness": {"is_complete": False}, "issues": []}, 0
+else:
+    rep, code = {"risk_assessment": {"score": 0, "severity": "LOW", "recommendation": "SAFE"}, "issues": [],
+                 "metadata": {"llm_requested": False}}, 0
+print(json.dumps(rep)); sys.exit(code)
+"""
+
+
+class InspectTests(unittest.TestCase):
+    def setUp(self):
+        self.e = Env()
+        self.fake = os.path.join(self.e.root, "bin", "skillspector")
+        write(self.fake, FAKE_SKILLSPECTOR)
+        os.chmod(self.fake, 0o755)
+
+    def tearDown(self):
+        self.e.cleanup()
+
+    def inspect(self, *args, fake=True):
+        path = (os.path.dirname(self.fake) + os.pathsep if fake else "") + "/usr/bin:/bin"
+        env = dict(os.environ, HOME=self.e.root, PATH=path)
+        out = subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "hkinspect.py"), *args],
+                             capture_output=True, text=True, env=env)
+        return json.loads(out.stdout), out.returncode
+
+    def test_verdicts(self):
+        for name, verdict, code in (("good-skill", "SAFE", 0), ("evil-skill", "DO_NOT_INSTALL", 2), ("partial-skill", "CAUTION", 1)):
+            d = os.path.join(self.e.root, name)
+            skill(d, name, "x")
+            res, rc = self.inspect(d)
+            self.assertEqual((res["verdict"], rc), (verdict, code), name)
+        res, _ = self.inspect(os.path.join(self.e.root, "evil-skill"))
+        self.assertEqual(res["top_issues"][0]["where"], "SKILL.md:3")
+
+    def test_missing_skillspector_blocks(self):
+        d = os.path.join(self.e.root, "good-skill")
+        skill(d, "good-skill", "x")
+        res, rc = self.inspect(d, fake=False)
+        self.assertEqual((res["status"], rc), ("missing", 3))
+
+    def test_plugin_in_marketplace(self):
+        repo = os.path.join(self.e.root, "market")
+        write(os.path.join(repo, ".claude-plugin", "marketplace.json"), json.dumps({"name": "m", "plugins": [
+            {"name": "good", "source": "./plugins/good"},
+            {"name": "remote", "source": {"source": "github", "repo": "someone/remote"}}]}))
+        skill(os.path.join(repo, "plugins", "good", "skills", "a"), "a", "x")
+        res, rc = self.inspect(repo, "--plugin", "good")
+        self.assertEqual(res["verdict"], "SAFE")
+        self.assertTrue(res["target"].endswith(os.path.join("plugins", "good")))
+        res, rc = self.inspect(repo, "--plugin", "remote")
+        self.assertEqual((res["status"], rc), ("remote-source", 4))
+
+
+SKILLSPECTOR = shutil.which("skillspector") or (
+    os.path.expanduser("~/.local/bin/skillspector") if os.path.isfile(os.path.expanduser("~/.local/bin/skillspector")) else None)
+
+
+@unittest.skipUnless(SKILLSPECTOR, "SkillSpector가 설치된 환경에서만 실행")
+class SelfInspectTests(unittest.TestCase):
+    def test_kit_has_no_active_findings(self):
+        kit = os.path.join(ROOT, "skills", "harnesskit")
+        out = subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "hkinspect.py"), kit,
+                              "--baseline", os.path.join(kit, ".skillspector-baseline.yaml")],
+                             capture_output=True, text=True, timeout=600,
+                             env=dict(os.environ, PATH=os.path.dirname(SKILLSPECTOR) + os.pathsep + os.environ.get("PATH", "")))
+        res = json.loads(out.stdout)
+        self.assertEqual(res["issues_by_severity"], {}, res.get("top_issues"))
+        self.assertIn(res["verdict"], ("SAFE", "CAUTION"))
+
+
 class CatalogTests(unittest.TestCase):
     def test_catalog_is_consistent(self):
         with open(os.path.join(ROOT, "skills", "harnesskit", "references", "catalog.json"), encoding="utf-8") as f:

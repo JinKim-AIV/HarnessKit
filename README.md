@@ -83,7 +83,7 @@ HarnessKit은 Claude Code와 Codex에서 쓰는 AI 스킬입니다. 프로젝트
 
 ## 카탈로그
 
-직접 써 보거나 저장소를 읽고 검토한 도구만 담았습니다. 전체 내용은 `skills/harnesskit/references/catalog.json`에 있습니다.
+저장소 파일을 읽고 검토한 도구 48개를 담았습니다. 하네스를 만들 때는 **이미 설치된 것 → 카탈로그 → 웹 탐색** 순으로 후보를 모으고, 설치는 기능 충돌 체크와 SkillSpector 보안 점검을 통과한 것만 합니다. 전체 내용은 `skills/harnesskit/references/catalog.json`에 있고, 스킬은 `hkcatalog.py`로 필요한 항목만 읽습니다.
 
 | 층 | 도구 | 하는 일 | 주의 |
 |---|---|---|---|
@@ -97,8 +97,12 @@ HarnessKit은 Claude Code와 Codex에서 쓰는 AI 스킬입니다. 프로젝트
 | | Trail of Bits static-analysis, fp-check | CodeQL·Semgrep 결과 분류, 오탐 판정 | fp-check는 응답마다 판정 훅이 돎 |
 | | Trail of Bits mutation / property-based testing | 테스트 설계 점검 | |
 | | Playwright | 웹 E2E 테스트 | 브라우저 도구는 하나만 |
-| 측정·보안 | ccusage, SkillSpector | 토큰 측정, 스킬 보안 점검 | `--offline`, `--no-llm` |
-| 선택 | Headroom | 로그·JSON 압축 프록시 | 텔레메트리 기본 켜짐, 회사 정책 확인 |
+| | frontend-design, playground, web-design-guidelines, shadcn | 웹 UI 디자인, 단일 HTML 도구, UI·접근성 리뷰, 컴포넌트 | 디자인 스킬끼리 같은 요청을 다툼 |
+| | Chrome DevTools MCP, draw.io, frontend-slides, Canva, Miro | 성능·접근성 점검, 다이어그램, HTML 슬라이드, 디자인 도구 연동 | |
+| | 공식 code-review, pr-review-toolkit, feature-dev, commit-commands, GitHub MCP | PR 리뷰, 측면별 리뷰, 기능 개발 절차, 커밋·PR, GitHub 연동 | feature-dev는 작업 절차 자리를 다툼 |
+| | Trail of Bits spec-compliance, testing-handbook, claude-security, skill-creator, arXiv MCP | 명세–코드 대조, 퍼징, 보안 스캔, 스킬 작성, 논문 | |
+| 측정·보안 | ccusage, **SkillSpector (필수)** | 토큰 측정, 설치 전 보안 점검 | `--offline`, `--no-llm` |
+| 선택 | Headroom, Anthropic example-skills, impeccable, ui-ux-pro-max, antv 차트, security-guidance 등 | 필요할 때만 골라 설치 | 묶음이 크거나 외부 전송·훅이 있음 |
 | 제외 | claude-mem, k-skill 전체 설치, agent-browser | | 외부 전송, 상시 비용, Playwright와 충돌 |
 
 ## Claude Code와 Codex
@@ -130,6 +134,8 @@ Claude Code 내장 기능과는 역할을 나눕니다. 안 쓰는 스킬 찾기
 ## 안전
 
 - 스캔 스크립트는 파일을 읽기만 하고, 스캔한 스킬의 코드는 실행하지 않습니다. 네트워크 통신도 하지 않습니다.
+- 외부 스킬은 카탈로그에 있든 없든 설치 전에 SkillSpector로 점검합니다. 설치되는 범위(스킬, 에이전트, 훅, 명령 등)만 보고, `DO_NOT_INSTALL`이면 사용자가 근거를 보고 분명히 감수한다고 할 때만 설치하며 그 결정을 기록합니다.
+- 키트 자신도 SkillSpector 점검에서 남은 탐지가 0건입니다. 허용한 항목은 근거와 함께 `.skillspector-baseline.yaml`에 있습니다.
 - 설치·끄기·파일 생성은 사용자가 승인한 뒤에만 하고, 설정 파일은 고치기 전에 백업합니다.
 - 외부로 데이터를 보내는 도구는 카탈로그와 점검 결과에 표시합니다.
 
@@ -137,6 +143,7 @@ Claude Code 내장 기능과는 역할을 나눕니다. 안 쓰는 스킬 찾기
 
 - Claude Code 또는 Codex
 - Python 3.8 이상 (Windows는 `python` 또는 `py -3`)
+- [NVIDIA SkillSpector](https://github.com/NVIDIA/SkillSpector): 외부 스킬을 설치하기 전 보안 점검에 쓴다. 없으면 HarnessKit은 외부 스킬을 설치하지 않는다. `uv tool install git+https://github.com/NVIDIA/skillspector.git`
 
 ## 구조
 
@@ -149,7 +156,10 @@ HarnessKit/
 │   ├── scripts/
 │   │   ├── hkscan.py                환경·후보 저장소 스캔
 │   │   ├── hkcheck.py               충돌 체크
+│   │   ├── hkinspect.py             설치 전 보안 점검 (NVIDIA SkillSpector, --no-llm)
+│   │   ├── hkcatalog.py             카탈로그에서 필요한 항목만 조회
 │   │   └── hklock.py                harnesskit.lock 기록, 변화 감지, Claude↔Codex 변환
+│   ├── .skillspector-baseline.yaml  키트 자체 점검에서 허용한 항목과 근거
 │   └── references/
 │       ├── catalog.json             큐레이션 카탈로그
 │       ├── conflict-rules.md        충돌 판정 기준
