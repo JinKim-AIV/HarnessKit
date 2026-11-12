@@ -12,4 +12,5 @@ HarnessKit 스킬의 원본 저장소다. 사용자가 이 저장소에서 Harne
 - 키트 자신은 SkillSpector 자체 점검에서 남은 탐지가 0건이어야 한다. 허용할 항목은 `skills/harnesskit/.skillspector-baseline.yaml`에 근거와 함께 적는다.
 - 늘 드는 비용은 스킬 설명문 하나로 유지한다. 훅을 추가하지 않는다.
 - 에이전트가 읽는 분량도 비용이다. SKILL.md는 요약만 두고 세부는 단계별 references 문서로 뺀다. 상한은 tests의 ReadBudgetTests가 지킨다.
+- `hktokens.py`는 세션 기록에서 사용량 숫자·모델·시각·도구 호출 수·에이전트 이름만 읽는다. 대화 내용을 장부에 옮기지 않는다. 읽을 수 없는 기록(Codex 등)은 '측정 안 됨'으로 적고 숫자를 지어내지 않는다.
 - 사용자에게 보이는 문구와 커밋 메시지는 한국어로 쓴다.

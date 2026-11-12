@@ -250,6 +250,148 @@ class LockTests(unittest.TestCase):
         self.assertIn("model: sonnet", md)
         self.assertIn("Read the spec and list risks.", md)
 
+    def test_status_reports_missing_token_ops_only_in_full_output(self):
+        p = self.e.project
+        self.e.run("hklock.py", "write", "--project", p, "--data", self.data)
+        status = json.loads(self.e.run("hklock.py", "status", "--project", p))
+        self.assertEqual(status["token_ops"], {"ledger": False, "caps": False})
+        self.assertTrue(any("hktokens.py" in h["message"] for h in status["hints"]))
+        self.assertEqual(self.e.run("hklock.py", "status", "--project", p, "--brief"), "")
+
+        skill(os.path.join(p, ".claude", "skills", "demo-orch"), "demo-orch", "demo orchestrator",
+              extra="")
+        with open(os.path.join(p, ".claude", "skills", "demo-orch", "SKILL.md"), "a", encoding="utf-8") as f:
+            f.write('python3 "$HK/hktokens.py" mark "<RUN> ② 빌드" --cap builder=40\n')
+        self.e.run("hklock.py", "write", "--project", p, "--data", self.data)
+        status = json.loads(self.e.run("hklock.py", "status", "--project", p))
+        self.assertEqual(status["token_ops"], {"ledger": True, "caps": True})
+        self.assertEqual(status["hints"], [])
+
+        # 사용자가 끈 결정은 lock을 다시 써도 남고, 알림도 하지 않는다
+        off = json.loads(read(self.data))
+        off["harness"]["token_ops"] = "off"
+        write(self.data, json.dumps(off))
+        self.e.run("hklock.py", "write", "--project", p, "--data", self.data)
+        on_again = json.loads(read(self.data))
+        on_again["harness"].pop("token_ops")
+        write(self.data, json.dumps(on_again))
+        self.e.run("hklock.py", "write", "--project", p, "--data", self.data)
+        self.assertEqual(json.loads(read(os.path.join(p, "harnesskit.lock")))["harness"]["token_ops"], "off")
+        self.assertIsNone(json.loads(self.e.run("hklock.py", "status", "--project", p))["token_ops"])
+
+
+class TokensTests(unittest.TestCase):
+    """hktokens.py: 세션 기록(jsonl)을 흉내 낸 가짜 기록으로 장부·점검·크기 확인."""
+    SID = "11111111-2222-3333-4444-555555555555"
+
+    def setUp(self):
+        import datetime as dt
+        import re
+        self.dt = dt
+        self.e = Env()
+        self.p = self.e.project
+        self.logs = os.path.join(self.e.claude, "projects", re.sub(r"[^A-Za-z0-9]", "-", os.path.abspath(self.p)))
+        self.dir = os.path.join(self.p, "_workspace", "tokens")
+        self.t0 = dt.datetime.now(dt.timezone.utc).replace(microsecond=0) - dt.timedelta(minutes=20)
+
+    def tearDown(self):
+        self.e.cleanup()
+
+    def at(self, minutes):
+        return (self.t0 + self.dt.timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+    def lines(self, path, recs, cwd=None):
+        rows = [{"type": "user", "cwd": cwd or self.p, "timestamp": self.at(0), "message": {"role": "user"}}]
+        for minute, mid, usage, ntools, *model in recs:
+            msg = {"id": mid, "model": model[0] if model else "claude-opus-5-5", "usage": usage,
+                   "content": [{"type": "text", "text": "x"}]}
+            rows.append({"type": "assistant", "timestamp": self.at(minute), "message": msg})
+            for k in range(ntools):  # 한 응답이 블록마다 여러 줄로 기록된다
+                rows.append({"type": "assistant", "timestamp": self.at(minute), "message": dict(
+                    msg, content=[{"type": "tool_use", "id": f"{mid}-t{k}", "name": "Bash"}])})
+        write(path, "\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n")
+
+    def usage(self, cache_read, out=10):
+        return {"input_tokens": 5, "cache_creation_input_tokens": 100, "cache_read_input_tokens": cache_read,
+                "output_tokens": out}
+
+    def tokens(self, *args, sid=SID, check=True):
+        env = dict(os.environ, CLAUDE_CONFIG_DIR=self.e.claude, CODEX_HOME=self.e.codex, HOME=self.e.root)
+        env.pop("CLAUDE_CODE_SESSION_ID", None)
+        if sid:
+            env["CLAUDE_CODE_SESSION_ID"] = sid
+        return subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "hktokens.py"), *args, "--project", self.p,
+                               "--dir", self.dir], capture_output=True, text=True, env=env, cwd=self.p, check=check)
+
+    def fake_session(self, base=None, sid=SID, cwd=None):
+        base = base or self.logs
+        self.lines(os.path.join(base, sid + ".jsonl"), [
+            (1, "m1", self.usage(1000), 2),
+            (2, "syn", self.usage(0, 0), 0, "<synthetic>"),
+            (8, "m2", self.usage(250_000), 1),
+        ], cwd=cwd)
+        sub = os.path.join(base, sid, "subagents")
+        self.lines(os.path.join(sub, "agent-a.jsonl"), [(6, "a1", self.usage(2000), 2), (7, "a2", self.usage(3000), 1)])
+        write(os.path.join(sub, "agent-a.meta.json"), json.dumps({"agentType": "builder", "description": "빌드"}))
+        self.lines(os.path.join(sub, "agent-b.jsonl"), [(7, "b1", self.usage(500), 1)])
+        write(os.path.join(sub, "agent-b.meta.json"), json.dumps({"agentType": "reviewer", "description": "검사"}))
+        # 같은 폴더의 다른 세션: 장부에 섞이면 안 된다
+        self.lines(os.path.join(base, "other-session.jsonl"), [(9, "o1", self.usage(9_999_999), 0)])
+
+    def test_mark_report_counts_once_per_response_and_compares_caps(self):
+        self.fake_session()
+        self.tokens("mark", "run-1 ① 준비", "--at", self.at(0))
+        self.tokens("mark", "run-1 ② 빌드", "--cap", "builder=2", "--at", self.at(5))
+        out = self.tokens("report").stdout
+        ledger = read(os.path.join(self.dir, "ledger.md"))
+        # 메인: m1(1,115) + m2(250,115), <synthetic> 제외, 같은 id 여러 줄은 한 번만
+        self.assertIn("| run-1 | 251,230 | 5,845 | **257,075** | 5 |", ledger)
+        self.assertIn("builder · 빌드 | 2 / 3 | 2 · **넘음** |", ledger)
+        self.assertIn("reviewer · 검사 | 1 / 1 | 상한 없음 |", ledger)
+        self.assertIn("다른 세션의 응답 1개는 빼었습니다", ledger)
+        self.assertNotIn("9,999,999", ledger)
+        self.assertIn("상한 넘음: builder 3/2", out)
+        self.assertIn("상한 없음: reviewer", out)
+        self.assertLess(len(out.splitlines()), 8, "화면 요약은 몇 줄이어야 한다")
+
+    def test_mark_suggests_new_session_when_conversation_is_large(self):
+        self.fake_session()
+        quiet = self.tokens("mark", "run-1 ① 준비", "--at", self.at(0), "--max-context", "300000").stdout
+        self.assertEqual(quiet, "")
+        loud = self.tokens("mark", "run-1 ② 빌드", "--at", self.at(9)).stdout
+        self.assertIn("대화 크기 250k", loud)
+        self.assertIn("새 세션", loud)
+
+    def test_warns_when_session_was_opened_in_another_folder(self):
+        parent = os.path.join(self.e.claude, "projects", "-elsewhere")
+        self.fake_session(base=parent, cwd="/elsewhere")
+        out = self.tokens("mark", "run-1 ① 준비", "--at", self.at(0)).stdout
+        self.assertIn("/elsewhere 에서 열었습니다", out)
+        again = self.tokens("mark", "run-1 ② 빌드", "--at", self.at(5)).stdout
+        self.assertNotIn("열었습니다", again)  # 폴더 경고는 실행의 첫 표시에서만
+        rep = self.tokens("report").stdout
+        self.assertIn("run-1 합계 257k", rep)  # 세션 id로 기록을 찾아 장부가 비지 않는다
+        self.assertIn("경고:", rep)
+
+    def test_without_session_id_warns_when_this_folder_has_no_records(self):
+        out = self.tokens("check", sid=None).stdout
+        self.assertIn("세션 기록이 없습니다", out)
+
+    def test_codex_is_not_measured(self):
+        self.tokens("mark", "run-1 ① 준비", "--runtime", "codex", sid=None)
+        out = self.tokens("report", "--runtime", "codex", sid=None).stdout
+        self.assertIn("측정 안 됨", out)
+        self.assertIn("측정 안 됨", read(os.path.join(self.dir, "ledger.md")))
+
+    def test_size_flags_handoff_files_over_limit(self):
+        write(os.path.join(self.p, "_workspace", "01_small.md"), "a" * 100)
+        write(os.path.join(self.p, "_workspace", "02_big.md"), "b" * 30_000)
+        ok = self.tokens("size", "_workspace/01_*.md")
+        self.assertIn("✓", ok.stdout)
+        bad = self.tokens("size", "_workspace/*.md", check=False)
+        self.assertEqual(bad.returncode, 1)
+        self.assertIn("02_big.md", bad.stdout)
+
 
 FAKE_SKILLSPECTOR = """#!/usr/bin/env python3
 import json, sys
@@ -384,8 +526,9 @@ class PersonalCatalogTests(unittest.TestCase):
 class ReadBudgetTests(unittest.TestCase):
     """What the agent reads is cost too. Keep the always-read and per-step documents small."""
     LIMITS = {"SKILL.md": 1600, "references/kit-build.md": 1500, "references/install.md": 1200,
-              "references/mode-build.md": 10800, "references/build-maintain.md": 1000,
-              "references/mode-check.md": 900, "references/mode-save.md": 1000, "references/mode-sync.md": 800}
+              "references/mode-build.md": 11700, "references/build-maintain.md": 1000,
+              "references/mode-check.md": 900, "references/mode-save.md": 1000, "references/mode-sync.md": 800,
+              "references/token-ops.md": 1700}
 
     def test_documents_stay_within_budget(self):
         sys.path.insert(0, SCRIPTS)

@@ -16,17 +16,23 @@ Material taken from Harness v2:
   the inventory now covers user-level skills, plugins, hooks, output styles
   and MCP servers; external skills are reused before new ones are generated;
   a pre-work check step is added to generated orchestrators; a
-  harnesskit.lock record is written; and Codex output, including how
-  Claude model tiers map to Codex reasoning settings, points to codex.md.
+  harnesskit.lock record is written; Codex output, including how
+  Claude model tiers map to Codex reasoning settings, points to codex.md;
+  and token-saving design rules (tool-call caps, script-based measurement,
+  change-only re-checks, iteration limits, anti-pattern check before
+  approval) and a run-operations block (token ledger, one run per
+  session, handoff prompt; see token-ops.md) are added.
 
 - skills/harnesskit/references/build-maintain.md
   Derived from skills/harness/SKILL.md (phase 0 branch table, v1 migration,
   phase 7 operations). Moved out of mode-build.md so a fresh build does not
-  read it.
+  read it. Modified by HarnessKit: missing token ledger or tool-call caps
+  in an existing harness are reported.
 
 - skills/harnesskit/references/mode-evolve.md
   Derived from skills/evolve/SKILL.md. Modified by HarnessKit:
   consolidation runs before new rules are added, the conflict check is
-  re-run after every change, and harnesskit.lock is updated.
+  re-run after every change, harnesskit.lock is updated, and token-cost
+  feedback is traced through the token ledger to specific fixes.
 
 Each derived file states at its top that it was changed.

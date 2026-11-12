@@ -20,6 +20,7 @@
 
 3. 기존 오케스트레이터에 `TeamCreate`, `TeamDelete`, `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`가 있으면 v1 산출물이다. 현재 실행 환경에서는 작동하지 않으므로 v2로 옮기자고 제안한다. 자세한 방법은 `references/harness/execution-modes.md`의 「v1에서 v2로 전환」을 따른다.
 4. 실제 에이전트·스킬 목록과 `CLAUDE.md` 기록을 대조해 불일치를 찾는다.
+5. **[HK]** `hklock.py status`의 `hints`에 토큰 장부·도구 호출 상한이 없다고 나오면 알리고, 확장하는 김에 `references/token-ops.md` 블록(`mode-build.md` 5-8)을 넣자고 제안한다.
 
 ### 7단계: 운영·유지 보수와 개선
 

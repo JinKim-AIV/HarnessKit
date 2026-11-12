@@ -12,6 +12,8 @@
       files edited outside HarnessKit, and whether a review (evolve) is due.
       --brief prints at most one line and nothing when there is no signal,
       so an orchestrator can run it every time at almost no cost.
+      The full output also says whether the orchestrator has the token ledger
+      (hktokens.py) and tool-call caps (--cap), unless harness.token_ops is "off".
 
   hklock.py mirror --project DIR [--to codex|claude]
       Copy harness skills between .claude/skills and .agents/skills and
@@ -91,7 +93,9 @@ def cmd_write(project, data_path):
     with open(data_path, encoding="utf-8") as f:
         data = json.load(f)
     old = load_lock(project) or {}
-    harness = data.get("harness") or old.get("harness") or {}
+    harness = dict(data.get("harness") or old.get("harness") or {})
+    if "token_ops" not in harness and "token_ops" in old.get("harness", {}):
+        harness["token_ops"] = old["harness"]["token_ops"]  # 사용자가 끈 결정은 다시 쓸 때도 유지
     lock = {
         "harnesskit": VERSION,
         "created": old.get("created") or now(),
@@ -123,6 +127,21 @@ def workspace_runs_since(project, since_iso):
             if os.path.getmtime(os.path.join(project, d)) > since:
                 n += 1
     return n
+
+
+def token_ops(project, harness):
+    """오케스트레이터에 토큰 장부(hktokens.py)와 도구 호출 상한(--cap)이 있는지. 꺼 두었거나 볼 수 없으면 None."""
+    if str(harness.get("token_ops", "")).lower() == "off" or not harness.get("orchestrator"):
+        return None
+    text = ""
+    for base in (os.path.join(".claude", "skills"), os.path.join(".agents", "skills")):
+        path = os.path.join(project, base, harness["orchestrator"], "SKILL.md")
+        if os.path.isfile(path):
+            with open(path, encoding="utf-8", errors="replace") as f:
+                text += f.read()
+    if not text:
+        return None
+    return {"ledger": "hktokens.py" in text, "caps": "--cap" in text}
 
 
 def cmd_status(project, brief):
@@ -165,15 +184,24 @@ def cmd_status(project, brief):
         signals.append(("evolve", f"마지막 회고 후 {age}일, 실행 {runs}회가 지났습니다. 회고(evolve)를 권장합니다."))
 
     if brief:
+        # 토큰 운영 알림은 넣지 않는다: 매 실행 묻게 되므로 HarnessKit을 부를 때(전체 출력)만 알린다
         if signals:
             kinds = sorted({k for k, _ in signals})
             print(f"[HarnessKit] {signals[0][1]} (harnesskit {'/'.join(kinds)})")
         return
+    ops = token_ops(project, harness)
+    hints = []
+    if ops and not (ops["ledger"] and ops["caps"]):
+        lack = [n for n, ok in (("토큰 장부(hktokens.py)", ops["ledger"]), ("도구 호출 상한(--cap)", ops["caps"])) if not ok]
+        hints.append({"suggest": "evolve", "message": f"오케스트레이터에 {' · '.join(lack)}이 없습니다. 회고(evolve)로"
+                      " references/token-ops.md 블록을 넣을 수 있습니다. 원하지 않으면 lock의 harness.token_ops를 off로 둡니다."})
     print(json.dumps({
         "lock": True, "env_changes": env_changes,
         "harness_files": {"edited": edited, "missing": missing, "new": new_files},
         "days_since_review": age, "runs_since_review": runs,
+        "token_ops": ops,
         "signals": [{"suggest": k, "message": m} for k, m in signals],
+        "hints": hints,
     }, ensure_ascii=False, indent=1))
 
 

@@ -40,6 +40,6 @@
 - 만든 것: 에이전트·스킬·오케스트레이터, 그리고 호출하는 말
 - 연결한 외부 스킬, 끈 도구와 이유
 - 남은 충돌과 외부 전송 도구
-- 측정 방법: `npx ccusage@20.0.49 --offline`, `claude plugin details <name>`
-- 다음 단계: 실제 작업 한 건 실행 → 피드백 → `하네스 회고`
+- 측정 방법: 실행 토큰은 오케스트레이터가 `hktokens.py`로 `_workspace/tokens/ledger.md`에 남긴다. 전체 사용량은 `npx ccusage@20.0.49 --offline`, 플러그인 상시 비용은 `claude plugin details <name>`
+- 다음 단계: 프로젝트 폴더에서 새 세션을 열고 실제 작업 한 건 실행 → 피드백 → `하네스 회고`
 

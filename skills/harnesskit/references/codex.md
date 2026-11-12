@@ -38,6 +38,8 @@ developer_instructions = '''
 | `TaskCreate`/`TaskUpdate` 공유 작업 목록 | `_workspace/tasks.md` 체크리스트. |
 | 에이전트별 모델 티어 (fable/opus/sonnet) | 5절의 대응표를 따른다. 기본은 상속이고, 가벼운 역할과 검증 역할만 따로 지정한다. |
 | `AskUserQuestion` | 번호 목록으로 묻는다. 추천안을 1번에 둔다. |
+| 토큰 장부 (`hktokens.py`, `token-ops.md`) | Codex 세션 기록은 읽지 않는다. `mark`·`report`에 `--runtime codex`를 붙이면 구간 시간만 남고 토큰은 '측정 안 됨'으로 적힌다. 숫자를 짐작해 채우지 않는다. |
+| 도구 호출 상한, 새 세션 제안 | 같다. 상한은 역할에 넘기는 지시에 쓴다. 새 세션은 프로젝트 폴더에서 Codex를 새로 열고 `_workspace/00_next_prompt.md 대로 해줘`로 시작한다. |
 
 ## 3. 규칙
 
@@ -50,7 +52,7 @@ developer_instructions = '''
 1. Claude Code 기준으로 설계하고 `.claude/`에 만든다.
 2. 오케스트레이터 스킬 본문에 `## Codex에서 실행할 때` 절을 두고, Claude 전용 기능을 쓰는 단계마다 위 표의 대체 방식을 적는다.
 3. `hklock.py write`로 lock을 쓴 뒤 `hklock.py mirror --to codex`로 `.agents/skills/`, `.codex/agents/*.toml`을 만든다.
-4. `CLAUDE.md`와 `AGENTS.md`에 같은 하네스 섹션을 둔다.
+4. `CLAUDE.md`와 `AGENTS.md`에 같은 하네스 섹션을 둔다. 운영 규칙(토큰·세션)은 오케스트레이터 스킬에 있으므로 두 파일에는 넣지 않는다. `## Codex에서 실행할 때` 절에 `HK` 경로(`~/.codex/skills/harnesskit/scripts`)와 `--runtime codex`를 적는다.
 5. 이후 한쪽을 고치면 `hklock.py mirror`로 다른 쪽을 맞춘다. `hklock.py status`가 어긋남을 알려 준다.
 
 ## 5. 모델 선택
