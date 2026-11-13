@@ -1,3 +1,11 @@
+<p align="center">
+  <a href="https://jinkim-aiv.github.io/HarnessKit/">
+    <img src="docs/preview.png" width="860" alt="HarnessKit 소개 페이지 표지: 복잡한 하네스, 한마디면 됩니다">
+  </a>
+  <br>
+  <a href="https://jinkim-aiv.github.io/HarnessKit/"><b>▶ 장면으로 보는 HarnessKit (약 2분)</b></a>
+</p>
+
 # HarnessKit
 
 **더 많은 스킬이 아닌, 더 잘 맞는 AI.**

@@ -1,0 +1,2022 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HarnessKit 소개 — 장면으로 보는 하네스 만들기</title>
+<meta name="description" content="한마디 요청에서 하네스가 만들어지고 일하고 나아지는 과정을 장면의 움직임으로 보여 주는 HarnessKit 소개입니다.">
+<!-- 재생 구조(무대 축소, 장면 목록, 진행 막대, 자막)는 원작 애니메이션 페이지 코드를 바탕으로 고쳐 썼다. 외부 라이브러리 없이 자체 시간축 엔진을 쓴다. -->
+<style>
+:root{
+  color-scheme: light dark;
+  --primary:#002878; --surface:#FFFFFF; --tint:#F5F6FA; --accent:#3175FF;
+  --text:#1C2025; --muted:#5F6670; --border:#E3E6EE; --on-primary:#FFFFFF;
+  /* 무대 색(DESIGN.md Colors '무대 색 쓰임', 4차): 무대는 다크 모드에서도 흰 바탕이라 아래 다크 미디어 쿼리에서 바꾸지 않는다 */
+  --s-bg:#FFFFFF; --s-raised:#F5F6FA; --s-text:#1C2025; --s-muted:#5F6670; --s-key:#002878; --s-accent:#3175FF; --s-line:#7D879B; --s-on-key:#FFFFFF; --s-danger:#C62828;
+  /* 자막 띠(DESIGN.md Layout '자막', 17차): 바탕 border(연한 회색), 글자 text. 라이트·다크 같은 색이라 다크 미디어 쿼리에서 바꾸지 않는다 */
+  --cap-bg:#E3E6EE; --cap-text:#1C2025;
+  --font:Pretendard,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',system-ui,sans-serif;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,'D2Coding',monospace;
+  --r-sm:5px; --r-md:10px; --r-lg:20px; --r-pill:60px;
+}
+@media (prefers-color-scheme: dark){
+  :root{--primary:#7FA6FF; --surface:#0B1424; --tint:#14213A; --accent:#7FA6FF;
+    --text:#E8ECF4; --muted:#A7B0C0; --border:#24324F; --on-primary:#0B1424;}
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--surface);color:var(--text);font:400 18px/1.7 var(--font);padding-inline:max(16px,4vw);padding-block:24px 64px}
+a{color:var(--primary);text-underline-offset:3px}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+/* (767px 이하) 300px = 위 여백 24 + 머리 120(lead 한 줄 포함) + 간격 28 + 무대 아래 간격 8 + 자막 띠 44(두 줄 자리, 17차) + 간격 8
+   + 조작 막대 44 + 여유 24: 낮은 화면에서도 무대·자막·조작 막대가 첫 화면에 함께 들어오게. 머리·무대·자막·조작 막대가 같은 열 폭을 쓴다(15차: 장면 목록·바닥글 없음) */
+.page{margin:0 auto;display:flex;flex-direction:column;gap:28px;max-width:1280px;
+  max-width:min(1280px,calc((100vh - 300px) * 16 / 9));max-width:min(1280px,max(560px,calc((100svh - 300px) * 16 / 9)))}
+/* 무대 폭 회복(5차): 768px 이상에서는 머리를 한 줄(제목 · 소개 줄, 높이 44)로 줄이고 머리와 무대 사이를 16px로 좁힌다.
+   186px(15차) = 위 여백 16 + 머리 44 + 간격 16 + 무대 아래 간격 10 + 자막 띠 32(한 줄 자리, 17차) + 간격 10 + 조작 막대 44 + 여유 14.
+   무대 폭 1366×768 1035px, 1280×720 949px. 767px 이하(모바일)는 위 규칙 그대로 */
+@media (min-width:768px){
+  body{padding-top:16px}
+  .page{max-width:min(1280px,calc((100vh - 186px) * 16 / 9));max-width:min(1280px,max(560px,calc((100svh - 186px) * 16 / 9)))}
+  .top{flex-wrap:nowrap;align-items:center;min-height:44px;margin-bottom:-12px}
+  .top>div{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 20px;min-width:0}
+  .top .eyebrow{display:none}
+  .top h1{font-size:30px;margin:0}
+  .top .lead{margin:0;font-size:18px}
+}
+
+/* ---------- 머리 ---------- */
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px 32px}
+.eyebrow{font:600 14px/1.4 var(--font);letter-spacing:.12em;color:var(--primary)}
+h1{font-weight:800;font-size:50px;line-height:1.2;letter-spacing:-.02em;margin:4px 0 0}
+.lead{margin:6px 0 0;font:600 20px/1.5 var(--font);color:var(--muted)}
+
+/* ---------- 재생기 ---------- */
+/* 위에서부터 무대 → 자막 띠 → 조작 막대(DESIGN.md Layout, 15차). 장면 목록·바닥글·전체 화면 버튼은 두지 않는다 */
+.player{display:flex;flex-direction:column;gap:10px}
+.stage{position:relative;width:100%;aspect-ratio:16/9;border-radius:var(--r-lg);overflow:hidden;background:var(--s-bg);border:1px solid var(--border);cursor:pointer}
+/* 조작 막대: 모든 폭에서 한 줄(재생 · 이전 · 다음 · 시간 · 진행 막대 · 배속). 진행 막대만 줄어들고 나머지는 크기를 지킨다 */
+.controls{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;min-width:0}
+.btn{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--primary);font:600 15px var(--font);height:44px;min-width:44px;padding:0 14px;border-radius:var(--r-pill);display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;flex:0 0 auto}
+.btn:hover{border-color:var(--primary);background:var(--tint)}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-disabled="true"]{opacity:.4;cursor:default}
+.btn[aria-disabled="true"]:hover{border-color:var(--border);background:var(--surface)}
+/* 재생: 글자 없이 작은 아이콘만. 상태는 aria-pressed와 aria-label로 알린다 */
+.btn.primary{background:var(--primary);border-color:var(--primary);color:var(--on-primary);width:44px;padding:0}
+.btn.primary:hover{background:var(--primary);box-shadow:0 0 0 4px var(--border)}
+/* 배속: 표시 글자(1× · 1.5× · 2× · 0.75×, 18차)가 바뀌어도 폭이 같아(가장 긴 '0.75×'에 맞춘 최소 폭) 진행 막대가 흔들리지 않게 */
+.btn.speed{min-width:74px;padding:0 10px;font-variant-numeric:tabular-nums}
+.btn:not([aria-disabled="true"]):active{transform:translateY(1px) scale(.96);box-shadow:inset 0 0 0 2px var(--accent)}
+.btn .i-pause,.btn .i-replay{display:none}
+.btn[data-state="playing"] .i-play{display:none}
+.btn[data-state="playing"] .i-pause{display:block}
+.btn[data-state="end"] .i-play{display:none}
+.btn[data-state="end"] .i-replay{display:block}
+.time{font:500 14px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;flex:0 0 auto}
+.track{flex:1 1 0;min-width:0;display:flex;height:44px;align-items:center;cursor:pointer;touch-action:none;border-radius:var(--r-md)}
+.segs{display:flex;gap:3px;width:100%;align-items:center}
+.seg{position:relative;height:8px;background:var(--border);border-radius:3px;overflow:hidden;transition:height .2s}
+.seg i{position:absolute;inset:0;background:var(--primary);transform-origin:0 50%;transform:scaleX(0)}
+.seg.on{height:14px}
+
+/* 자막(DESIGN.md Layout '자막', 15차): 지금 문장 하나만 보이는 영상 자막 띠. 조작 막대 바로 위, 라이트·다크 같은 색.
+   높이는 데스크톱 한 줄·모바일 두 줄 자리로 잡아 문장이 바뀌어도 조작 막대가 움직이지 않는다(가장 긴 문장도 그 자리에 들어간다) */
+.caption{margin:0;display:flex;align-items:center;justify-content:center;text-align:center;min-height:32px;padding:4px 16px;background:var(--cap-bg);color:var(--cap-text);border-radius:var(--r-sm);font:400 15px/1.5 var(--font);word-break:keep-all;overflow-wrap:anywhere}
+.cap-t.swap{animation:capin .45s ease-out}
+@keyframes capin{from{opacity:.25}to{opacity:1}}
+/* 모바일(767px 이하): 자막 13px 두 줄 자리, 조작 막대 간격·배속 폭을 줄여 한 줄에 넣는다(버튼은 44px 그대로) */
+@media (max-width:767px){
+  .player{gap:8px}
+  .controls{gap:6px}
+  .btn{padding:0 10px}
+  .btn.primary{padding:0}
+  .btn.speed{min-width:62px;padding:0 6px;font-size:14px}
+  .time{font-size:12px}
+  .caption{min-height:44px;padding:2px 12px;font-size:13px}
+}
+/* 좁은 폭(480px 이하): 넘치지 않게 시간 표시에서 전체 길이를 숨기고 지금 시각만 둔다(DESIGN.md: 시간 표시부터 숨김) */
+@media (max-width:480px){
+  .controls{gap:4px}
+  .t-all{display:none}
+  .segs{gap:2px}
+}
+@media (max-width:600px){
+  h1{font-size:32px}
+  .lead{font-size:17px}
+}
+
+/* ---------- 무대 설계 캔버스 (1600 x 900) ---------- */
+.world{position:absolute;left:0;top:0;width:1600px;height:900px;transform-origin:0 0;font-family:var(--font);font-size:32px;color:var(--s-text);line-height:1.3;background:var(--s-bg);word-break:keep-all}
+.world :where(p,h2,h3,ul,ol){margin:0;padding:0}
+.scene{position:absolute;inset:0}
+.scene:not(:first-child){visibility:hidden;opacity:0}
+.a{position:absolute}
+.sv{position:absolute;left:0;top:0;width:1600px;height:900px;overflow:visible}
+.sv *{transform-box:fill-box;transform-origin:center}
+.sv text{fill:currentColor;font-family:var(--font)}
+.st{font-size:72px;font-weight:800;letter-spacing:-.02em;color:var(--s-key)}
+.h112{font-size:112px;font-weight:800;letter-spacing:-.02em;color:var(--s-key)}
+.l28{font-size:28px}.l30{font-size:30px}.l32{font-size:32px;font-weight:600}.l36{font-size:36px;font-weight:700}.l40{font-size:40px;font-weight:700}.l56{font-size:56px;font-weight:800}
+.reg{font-weight:400}.mono{font-family:var(--mono)!important}
+.mu{color:var(--s-muted)}.sc{color:var(--s-key)}
+/* 흰 무대(4차): 상자 테두리·연결선은 --s-line, 큰 선 아이콘은 --s-key, 체크·강조는 --s-accent, 충돌·경고만 --s-danger */
+.ln{fill:none;stroke:var(--s-line);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.dl{stroke-dasharray:10 10}
+.faint{opacity:.5}
+.bx{fill:var(--s-raised);stroke:var(--s-line);stroke-width:3}
+.bx2{fill:var(--s-bg);stroke:var(--s-line);stroke-width:3}
+.ic{fill:none;stroke:var(--s-key);stroke-width:5;stroke-linecap:round;stroke-linejoin:round}
+/* 충돌·경고(✕ · ! · 지시 모순 · 충돌 칩)에만: .dg 글자·채움, .dgs 선, .dchip 테두리 칩(바탕 흰색) */
+.dg{color:var(--s-danger);fill:var(--s-danger)}
+.sv text.dg{fill:var(--s-danger)}
+.dgs{stroke:var(--s-danger)}
+.dchip{display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:6px 18px;border-radius:var(--r-pill);border:3px solid var(--s-danger);background:var(--s-bg);color:var(--s-danger);font-weight:700;white-space:nowrap}
+.ck{fill:none;stroke:var(--s-accent);stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
+.coin{fill:var(--s-raised);stroke:var(--s-accent);stroke-width:3}
+.coin2{fill:none;stroke:var(--s-accent);stroke-width:2}
+/* 하네스 묶음: S01과 같은 모양(파란 테두리 + 에이전트·스킬·작업 순서 아이콘)을 S05·S06에서도 쓴다 */
+.hb{fill:var(--s-bg);stroke:var(--s-key);stroke-width:4}
+.hbi{fill:none;stroke:var(--s-accent);stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.ah{fill:var(--s-line)}
+/* 배지: 재구성 3부터 '예시'만 쓴다(모든 장면 같은 모양·크기) */
+.bdg{display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 18px;border-radius:var(--r-pill);font:600 28px/1 var(--font);white-space:nowrap}
+.bdg.ex{background:transparent;color:var(--s-key);border:2px solid var(--s-key)}
+/* 큰 선 아이콘의 하늘색 */
+.ic.sky{stroke:var(--s-accent)}
+/* 장면 머리(HUD): 태그 + 큰 제목 + 작은 설명. 자리 x 64~1536, y 40~220 (DESIGN.md Layout 재구성 3) */
+.hud2{position:absolute;left:64px;top:40px;width:1472px}
+.hud-tag{font:600 28px/1 var(--mono);letter-spacing:.14em;color:var(--s-key)}
+.hud-h{margin-top:16px!important;font-size:64px;font-weight:800;letter-spacing:-.02em;line-height:1.12;white-space:nowrap;color:var(--s-key)}
+.hud-p{margin-top:12px!important;font-size:36px;color:var(--s-muted);line-height:1.3}
+/* 카드 벽(S04·S05a 공용): 이름 없는 카드 */
+.wall{position:absolute;display:grid;gap:12px}
+.wcard{width:104px;height:64px;border-radius:14px;background:var(--s-raised);border:2px solid var(--s-line)}
+/* 이름 붙은 카드(카드 벽에서 앞으로 나온 카드, S04·S08·S05a 공용) */
+.ncard{position:absolute;padding:14px 24px;border-radius:18px;background:var(--s-raised);border:3px solid var(--s-key);font:700 36px/1.2 var(--font);color:var(--s-text);white-space:nowrap}
+.ncard small{display:block;margin-top:4px;font:400 28px/1.3 var(--font);color:var(--s-muted)}
+/* 입력창(S01·S14 공용, 같은 x·크기 1000 x 140): 둥근 상자 + 타자 글 + 커서 + 보내기(둥근 사각·위쪽 화살표) + '딸깍' 링 */
+.inbx{fill:var(--s-raised);stroke:var(--s-key);stroke-width:4}
+.caret{fill:var(--s-key)}
+.snd{fill:var(--s-key)}
+.snda{fill:none;stroke:var(--s-on-key);stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
+.sndr{fill:none;stroke:var(--s-key);stroke-width:4}
+/* 진행 표시줄(17차, y 816~870, x 64~1536): 한 줄 10칸 — 묶음·묶음 이름·틈 없음. 칸 10개가 같은 너비(147.2px)로 나뉘고,
+   가는 선 하나가 첫 점 가운데~끝 점 가운데를 잇는다(양끝 100%/20 = 반 칸, 선 x 약 137.6~1462.4, 점 가운데 y 827).
+   지난 점은 채움, 지금 점은 크게, 남은 점은 테두리만. 지금 칸 이름은 지금 점 아래에만 보이고, 나머지 이름은 display:none으로 렌더링에서 뺀다.
+   양 끝 칸 이름(진단·Codex)도 무대 안: 첫 점 x 약 137.6, 끝 점 x 약 1462.4 */
+.trk{position:absolute;left:64px;top:816px;width:1472px;height:54px}
+.trk ol{position:relative;display:flex;align-items:flex-start;list-style:none;margin:0;padding:0}
+.trk ol::before{content:"";position:absolute;left:calc(100% / 20);right:calc(100% / 20);top:10px;height:2px;background:var(--s-line)}
+.trk li{position:relative;flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:2px;font:700 28px/1 var(--font);color:var(--s-text);white-space:nowrap}
+.trk li span{display:none}
+.trk li.on span{display:block}
+.trk li::before{content:"";box-sizing:border-box;flex:none;width:14px;height:14px;margin-top:4px;border-radius:50%;border:2px solid var(--s-line);background:var(--s-bg)}
+.trk li.done::before{background:var(--s-key);border-color:var(--s-key)}
+.trk li.on::before{width:22px;height:22px;margin-top:0;background:var(--s-key);border-color:var(--s-key)}
+
+@media (prefers-reduced-motion: reduce){
+  .cap-t.swap{animation:none}
+  .seg{transition:none}
+}
+#s01 .a1chev{fill:var(--s-raised);stroke:var(--s-accent);stroke-width:4;stroke-linejoin:round}
+#s01 .a1blk{fill:var(--s-raised);stroke:var(--s-key);stroke-width:3}
+#s01 .a1eye{fill:var(--s-key)}
+#s01 .a1tag{fill:var(--s-key)}
+#s01 .sv text.a1tagt{fill:var(--s-on-key);font-size:36px;font-weight:800}
+#s01 .a1ln{text-align:center;font:800 56px/1.2 var(--font);color:var(--s-key);white-space:nowrap}
+#s02 .a2blk{fill:var(--s-raised);stroke:var(--s-accent);stroke-width:3}
+#s04 .a4num{font-size:120px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+#s04 .a4box{fill:var(--s-bg);stroke:var(--s-line);stroke-width:3}
+#s04 .a4c{fill:var(--s-raised);stroke:var(--s-line);stroke-width:2}
+#s04 .a4open{fill:none;stroke:var(--s-line);stroke-width:2;stroke-dasharray:6 5}
+#s04 .a4k{fill:var(--s-key);font-variant-numeric:tabular-nums}
+#s05 .a5c{fill:var(--s-bg);stroke:var(--s-line);stroke-width:3}
+#s05 .a5slot{fill:none;stroke:var(--s-line);stroke-width:3;stroke-dasharray:12 8}
+#s05 .a5bk{fill:var(--s-raised);stroke:var(--s-key);stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+#s05 .a5goal{fill:var(--s-bg);stroke:var(--s-key);stroke-width:5}
+#s05 .a5pt{fill:none;stroke:var(--s-accent);stroke-width:3;stroke-linecap:round;stroke-dasharray:10 10}
+#s12 .v12ph{left:80px;top:260px;width:340px;height:510px;box-sizing:border-box;border:5px solid var(--s-key);border-radius:44px;background:var(--s-bg)}
+#s12 .v12ph::before{content:"";position:absolute;left:133px;top:12px;width:64px;height:8px;border-radius:4px;background:var(--s-line)}
+#s12 .v12scr{left:96px;top:296px;width:308px;height:456px;overflow:hidden;border-radius:10px}
+#s12 .v12feed{position:absolute;left:0;top:0;width:308px;height:456px}
+#s12 .v12pic{position:absolute;left:8px;width:292px;height:172px;box-sizing:border-box;border-radius:16px;background:var(--s-raised);border:3px solid var(--s-line);display:flex;align-items:center;justify-content:center}
+#s12 .v12pic svg{fill:none;stroke:var(--s-line);stroke-width:4;stroke-linejoin:round}
+#s12 .v12card{width:292px;height:96px;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:0 16px;border-radius:16px;border:4px solid var(--s-key);background:var(--s-bg);font:700 36px/1.2 var(--font);color:var(--s-text);white-space:nowrap;overflow:hidden}
+#s12 .v12card svg{flex:none;fill:none;stroke:var(--s-key);stroke-width:3.5;stroke-linejoin:round}
+#s12 .v12sk{position:absolute;left:8px;top:179px}
+#s12 .v12box{fill:var(--s-raised);stroke:var(--s-key);stroke-width:3;stroke-linejoin:round}
+#s12 .v12nc{fill:var(--s-raised);stroke:var(--s-line);stroke-width:2.5}
+#s12 .v12pz{fill:none;stroke:var(--s-line);stroke-width:3.5;stroke-linejoin:round}
+#s12 .v12clk{fill:none;stroke:var(--s-key);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+#s12 .v12bdg{padding:2px 16px;border-radius:var(--r-pill);border:3px solid var(--s-key);background:var(--s-bg);color:var(--s-key);font:700 28px/1.2 var(--font);white-space:nowrap}
+#s03 .a3bb{fill:var(--s-bg);stroke:var(--s-key);stroke-width:2.5}
+#s03 .a3bb.sk{stroke:var(--s-accent)}
+#s03 .a3tl{fill:var(--s-bg);stroke:var(--s-key);stroke-width:2.5;stroke-linejoin:round}
+#s03 .a3tl.sk{stroke:var(--s-accent)}
+#s03 .a3pull{fill:none;stroke:var(--s-key);stroke-width:5;stroke-linecap:round;stroke-linejoin:round}
+#s03 .a3doc{fill:var(--s-bg);stroke:var(--s-key);stroke-width:3}
+/* 에이전트 상자(S07에서 정함, S08·S10이 같은 값): 둥근 상자 + 로봇 얼굴 선 아이콘 + 모델 칩 28px mono
+   (sonnet은 테두리 칩, opus는 채운 칩) + 추론 강도 3칸 눈금(low 1 · medium 2 · high 3).
+   남은 P2 2: S07 상자마다 담당 이름(30px)을 로봇 얼굴 오른쪽에 다시 단다(S08 설계안과 짝). 칩에는 모델 이름만, 추론 강도는 눈금으로만.
+   여백(4차): 상자 안쪽 24px 이상(스킬 칸 x+24·폭 296), S07 로봇 얼굴은 상자 왼쪽 scale(1.1) — 폭 77 안팎, 이름과 16px */
+.agbox{fill:var(--s-raised);stroke:var(--s-line);stroke-width:3}
+.agf{fill:none;stroke:var(--s-accent);stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.agf circle{fill:var(--s-accent);stroke:none}
+.agchip{fill:var(--s-bg);stroke:var(--s-accent);stroke-width:2}
+.agchip.op{fill:var(--s-key);stroke:var(--s-key)}
+.sv .agt{font-family:var(--mono);font-size:28px;font-weight:600;fill:var(--s-key)}
+.sv .agt.op{fill:var(--s-on-key)}
+.agbar{fill:none;stroke:var(--s-line);stroke-width:2}
+.agbar.on{fill:var(--s-accent);stroke:var(--s-accent)}
+/* 에이전트 상자(S07에서 정함, S08·S10이 같은 값): 둥근 상자 + 로봇 얼굴 선 아이콘 + 역할 이름 36px + '모델 · 추론 강도' 태그 28px mono
+   (sonnet은 테두리 칩, opus는 채운 칩) + 추론 강도 3칸 눈금(low 1 · medium 2 · high 3) */
+.agbox{fill:var(--s-raised);stroke:var(--s-line);stroke-width:3}
+.agf{fill:none;stroke:var(--s-accent);stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.agf circle{fill:var(--s-accent);stroke:none}
+.agchip{fill:var(--s-bg);stroke:var(--s-accent);stroke-width:2}
+.agchip.op{fill:var(--s-key);stroke:var(--s-key)}
+.sv .agt{font-family:var(--mono);font-size:28px;font-weight:600;fill:var(--s-key)}
+.sv .agt.op{fill:var(--s-on-key)}
+.agbar{fill:none;stroke:var(--s-line);stroke-width:2}
+.agbar.on{fill:var(--s-accent);stroke:var(--s-accent)}
+/* S08a: 기준 문서 모양(귀퉁이 접힌 문서)은 S10a와 같다. 에이전트 상자·로봇 얼굴은 S07의 .agbox·.agf를 그대로 쓴다 */
+.kadl{fill:var(--s-line)}
+.kadoc{fill:var(--s-raised);stroke:var(--s-key);stroke-width:3}
+/* 14차: 공통 규칙 카드 안 라벨 칩(처음엔 회색 테두리 · 본문 글자, 카드가 선 뒤 primary 채움 + on-primary 글자로 켜짐 — 13.3:1) · CLAUDE.md 오른쪽 위 모서리 꼬리표 */
+.kach{fill:var(--s-bg);stroke:var(--s-line);stroke-width:3}
+.kapl{fill:var(--s-bg);stroke:var(--s-key);stroke-width:2}
+/* 에이전트 상자(S07에서 정함, S08·S10이 같은 값): 둥근 상자 + 로봇 얼굴 선 아이콘 + 역할 이름 36px + '모델 · 추론 강도' 태그 28px mono
+   (sonnet은 테두리 칩, opus는 채운 칩) + 추론 강도 3칸 눈금(low 1 · medium 2 · high 3)
+   5차 라벨 수(10 → 9, 말풍선 둘은 같은 자리를 번갈아 써 한 번에 8): 완성 PPT 카드의 'PPT' 글자를 빼고 썸네일 셋만 */
+.agbox{fill:var(--s-raised);stroke:var(--s-line);stroke-width:3}
+.agf{fill:none;stroke:var(--s-accent);stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.agf circle{fill:var(--s-accent);stroke:none}
+.agchip{fill:var(--s-bg);stroke:var(--s-accent);stroke-width:2}
+.agchip.op{fill:var(--s-key);stroke:var(--s-key)}
+.sv .agt{font-family:var(--mono);font-size:28px;font-weight:600;fill:var(--s-key)}
+.sv .agt.op{fill:var(--s-on-key)}
+.agbar{fill:none;stroke:var(--s-line);stroke-width:2}
+.agbar.on{fill:var(--s-accent);stroke:var(--s-accent)}
+/* S10a 10차: 위 한 줄 '통째로 읽기 vs 자기 몫만 읽기', 왼쪽 큰 문서(근거 시트 145KB → 목차 + 조각 넷), 오른쪽 S10 끝의 담당 넷(같은 상자·로봇 얼굴, 같은 순서)과 그 앞 종이 더미(숫자 없음).
+   높은 더미는 점선 윤곽('통째로 읽을 때')으로 남고 그 안에 낮은 더미('자기 몫만 읽을 때')가 쌓여 두 더미를 함께 본다.
+   에이전트 상자·로봇 얼굴은 S07의 .agbox·.agf를 그대로 쓴다 */
+.tadl{fill:var(--s-line)}
+.tash{fill:var(--s-bg);stroke:var(--s-key);stroke-width:2}
+.taol{fill:none;stroke:var(--s-line);stroke-width:3;stroke-dasharray:10 8}
+.tatg{fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3}
+/* S10b 10차: 주인공은 게이지(컨텍스트). 쌓임 → 제안 → 새 세션. 위쪽 줄(주 메시지)이 먼저, '안정적인 작업 재개'는 끝에 작게(부가).
+   창은 둥근 사각 틀 + 윗줄 점 셋, 게이지에 숫자·눈금 없음. 문서 모양(귀퉁이 접힌 문서)은 S10a와 같다 */
+.nbwin{fill:var(--s-bg);stroke:var(--s-line);stroke-width:3}
+.nbdot{fill:var(--s-line)}
+.nbgg{fill:var(--s-bg);stroke:var(--s-line);stroke-width:3}
+.nbgv{fill:var(--s-accent)}
+.nbm{fill:var(--s-raised);stroke:var(--s-line);stroke-width:2}
+.nbm.r{stroke:var(--s-key)}
+#s14 .s14i{fill:none;stroke:var(--s-key);stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+</style>
+</head>
+<body data-scene-index="0" data-playing="false">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <marker id="ahm" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10z" style="fill:var(--s-line)"/></marker>
+    <marker id="ahs" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10z" style="fill:var(--s-accent)"/></marker>
+  </defs>
+</svg>
+
+<div class="page">
+  <header class="top">
+    <div>
+      <div class="eyebrow">HARNESSKIT 소개 · 장면으로 보기</div>
+      <h1>HarnessKit</h1>
+      <p class="lead">복잡한 하네스 쉽게 시작해보세요!</p>
+    </div>
+  </header>
+
+  <section class="player" aria-label="HarnessKit 소개 재생기">
+    <div class="stage" id="stage" title="무대를 누르면 재생과 멈춤이 바뀝니다">
+      <div class="world" id="world">
+        <!-- ===== S01 한마디 요청: 입력창에 요청이 쳐지고, 잠깐 멈춘 뒤 보내기가 '딸깍' 눌리면 입력창 가운데에서 큰 타일 넷이 펼쳐지고(안쪽 그림이 함께 한 번씩 움직임), 넷이 가운데로 모여 '하네스' 묶음 하나가 된다. 묶음 아래 강조 줄이 서고 끝 ===== -->
+        <section class="scene" id="s01" data-scene="S01" data-duration="12" data-label="HARNESSKIT" data-title="복잡한 하네스, 한마디면 됩니다" aria-label="장면 1 복잡한 하네스, 한마디면 됩니다" data-tracker="@start">
+          <header class="hud2" id="a1h">
+            <p class="hud-tag">HARNESSKIT</p>
+            <p class="hud-p" data-fact="F109 F060 F137 F391">워크플로 설계, 서브에이전트 정의, 스킬 연결, 하네스 자동 개선 제안까지.</p>
+          </header>
+          <ol class="narr" hidden>
+            <li data-at="0" data-fact="F001">하네스, 뭐부터 할지 막막하죠? 한마디면 HarnessKit이 만들어 드립니다.</li>
+          </ol>
+          <span class="a bdg ex" id="a1x" style="right:64px;top:36px">예시</span>
+          <svg class="sv" viewBox="0 0 1600 900" aria-hidden="true">
+            <!-- 입력창 위 큰 제목(글자 아래 끝 ≈ 기준선 + 16 → 268, 입력창 위 330과 사이 약 60px) -->
+            <text id="a1ttl" class="h112" x="800" y="252" text-anchor="middle" data-fact="F001 F109">복잡한 하네스, 한마디면 됩니다</text>
+            <!-- 2박자: 가운데로 모인 네 블록 둘레의 '하네스' 테두리(x 420~1180, y 386~642) + 위 이름표 -->
+            <g id="a1hb" data-fact="F001">
+              <rect class="hb" x="420" y="386" width="760" height="256" rx="28"/>
+            </g>
+            <!-- 입력창(S14와 같은 모양·크기): 요청이 타자처럼 쳐지고, 멈춘 뒤 보내기가 '딸깍' -->
+            <g id="a1in" data-fact="F012">
+              <rect class="inbx" x="300" y="330" width="1000" height="140" rx="70"/>
+              <text id="a1q" class="l40 reg" x="364" y="414">PPT 만들 건데 하네스 만들어줘</text>
+              <rect id="a1cur" class="caret" x="370" y="376" width="4" height="48"/>
+              <g id="a1snd"><rect class="snd" x="1196" y="360" width="80" height="80" rx="22"/><path class="snda" d="M1236,420 V380 M1218,398 L1236,380 L1254,398"/></g>
+              <rect id="a1rg" class="sndr" x="1196" y="360" width="80" height="80" rx="22"/>
+            </g>
+            <!-- 큰 타일 넷(520 x 160, 사이 56·32, x 252~1348, y 352~704): 펼쳐지며 안쪽 그림이 한 번씩 움직이고, 2박자에 0.7배로 모여 묶음이 된다(라벨 40 → 28px) -->
+            <g id="a1t1" data-fact="F109">
+              <rect class="bx" x="252" y="352" width="520" height="160" rx="20"/>
+              <text class="l40" x="284" y="412">워크플로 짜기</text>
+              <path class="a1chev" d="M284,442 H408 L430,464 L408,486 H284 Z"/>
+              <path class="a1chev" d="M432,442 H556 L578,464 L556,486 H432 L454,464 Z"/>
+              <path class="a1chev" d="M580,442 H704 L726,464 L704,486 H580 L602,464 Z"/>
+            </g>
+            <g id="a1t2" data-fact="F109">
+              <rect class="bx" x="828" y="352" width="520" height="160" rx="20"/>
+              <text class="l40" x="860" y="412">서브에이전트 정의</text>
+              <g class="a1ag"><rect class="a1blk" x="862" y="446" width="56" height="42" rx="12"/><path class="ln" style="stroke:var(--s-key)" d="M890,446 V434"/><circle class="a1eye" cx="880" cy="467" r="4.5"/><circle class="a1eye" cx="900" cy="467" r="4.5"/></g>
+              <g class="a1ag"><rect class="a1blk" x="972" y="446" width="56" height="42" rx="12"/><path class="ln" style="stroke:var(--s-key)" d="M1000,446 V434"/><circle class="a1eye" cx="990" cy="467" r="4.5"/><circle class="a1eye" cx="1010" cy="467" r="4.5"/></g>
+              <g class="a1ag"><rect class="a1blk" x="1082" y="446" width="56" height="42" rx="12"/><path class="ln" style="stroke:var(--s-key)" d="M1110,446 V434"/><circle class="a1eye" cx="1100" cy="467" r="4.5"/><circle class="a1eye" cx="1120" cy="467" r="4.5"/></g>
+            </g>
+            <g id="a1t3" data-fact="F060">
+              <rect class="bx" x="252" y="544" width="520" height="160" rx="20"/>
+              <text class="l40" x="284" y="604">스킬 찾아 연결</text>
+              <g transform="translate(164,-45)">
+                <rect class="a1blk" x="296" y="679" width="120" height="44" rx="12"/>
+                <rect class="a1blk" x="338" y="688" width="36" height="26" rx="7"/><path class="ln" style="stroke:var(--s-key)" d="M356,688 V682"/><circle class="a1eye" cx="350" cy="701" r="3"/><circle class="a1eye" cx="362" cy="701" r="3"/>
+                <g class="a1sk"><rect x="120" y="679" width="80" height="44" rx="10" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3"/><path class="hbi" style="stroke-width:3" d="M147,691 H155 a4,4 0 1 1 8,0 H171 V699 a4,4 0 1 1 0,8 V715 H147 Z"/></g>
+                <g class="a1sk"><rect x="208" y="679" width="80" height="44" rx="10" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3"/><path class="hbi" style="stroke-width:3" d="M235,691 H243 a4,4 0 1 1 8,0 H259 V699 a4,4 0 1 1 0,8 V715 H235 Z"/></g>
+              </g>
+            </g>
+            <g id="a1t4" data-fact="F137 F391">
+              <rect class="bx" x="828" y="544" width="520" height="160" rx="20"/>
+              <text class="l40" x="860" y="604">하네스 자동 개선 제안</text>
+              <!-- 제안 말풍선(글 없는 두 줄) → 승인 체크: 자동은 알아채고 제안까지, 반영은 승인 뒤 -->
+              <g transform="translate(10,-41)">
+                <g id="a1bub"><path d="M860,678 H908 Q918,678 918,688 V706 Q918,716 908,716 H884 L870,730 V716 H860 Q850,716 850,706 V688 Q850,678 860,678 Z" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:4;stroke-linejoin:round"/><path d="M864,692 H904 M864,703 H890" style="fill:none;stroke:var(--s-accent);stroke-width:4;stroke-linecap:round"/></g>
+                <path id="a1arw" class="ln" d="M936,700 H968 M958,690 L968,700 L958,710"/>
+                <g id="a1ok"><path class="ck" d="M988,702 L996,710 L1010,694" style="stroke-width:4"/><text class="l40" x="1022" y="712">승인</text></g>
+              </g>
+            </g>
+            <!-- 묶음 위 '하네스' 이름표(테두리 위쪽 가운데) -->
+            <g id="a1tag" data-fact="F001">
+              <rect class="a1tag" x="710" y="352" width="180" height="52" rx="26"/>
+              <text class="a1tagt" x="800" y="391" text-anchor="middle">하네스</text>
+            </g>
+          </svg>
+          <!-- 3박자: 묶음 아래 강조 줄(y 706~773) -->
+          <p class="a a1ln" id="a1ln" data-fact="F001" style="left:64px;top:706px;width:1472px">내 일에 딱 맞는 하네스, 자동으로 만들어 드립니다!</p>
+        </section>
+
+        <!-- ===== S02 스캔: 스캔 빛이 프로젝트 선반을 훑고, 그 아래로 새 프로젝트 / 하네스가 있는 프로젝트 두 갈래 길이 열린다 ===== -->
+        <section class="scene" id="s02" data-scene="S02" data-duration="9" data-label="SCAN" data-title="만들기 전에, 지금 프로젝트부터 봅니다" data-tracker="진단" aria-label="장면 2 만들기 전에, 지금 프로젝트부터 봅니다">
+          <header class="hud2" id="a2h">
+            <p class="hud-tag">SCAN</p>
+            <h3 class="hud-h" data-fact="F262 F517 F519">만들기 전에, 지금 프로젝트부터 봅니다</h3>
+            <p class="hud-p" data-fact="F262 F517 F518">설치된 도구와 기존 하네스를 살핀 뒤, 있으면 고쳐 쓰고 없으면 새로 지어요.</p>
+          </header>
+          <ol class="narr" hidden>
+            <li data-at="0" data-fact="F262">새로 만들기 전에, 깔린 도구와 기존 하네스부터 체크합니다.</li>
+            <li data-at="4.4" data-fact="F519 F518">기존 하네스가 있으면 새로 만들지 않고 필요한 단계만 고칩니다.</li>
+          </ol>
+          <svg class="sv" viewBox="0 0 1600 900" aria-hidden="true">
+            <!-- 프로젝트 폴더와 선반 4칸 -->
+            <g id="a2f" data-fact="F262">
+              <rect x="400" y="262" width="150" height="44" rx="12" style="fill:var(--s-raised);stroke:var(--s-key);stroke-width:3"/>
+              <rect x="400" y="292" width="800" height="178" rx="18" style="fill:var(--s-bg);stroke:var(--s-key);stroke-width:4"/>
+              <rect class="bx a2card" x="430" y="322" width="176" height="118" rx="16"/><text class="l36" x="518" y="394" text-anchor="middle">스킬</text>
+              <rect class="bx a2card" x="618" y="322" width="176" height="118" rx="16"/><text class="l36" x="706" y="394" text-anchor="middle">플러그인</text>
+              <rect class="bx a2card" x="806" y="322" width="176" height="118" rx="16"/><text class="l36" x="894" y="394" text-anchor="middle">훅</text>
+              <rect class="bx a2card" x="994" y="322" width="176" height="118" rx="16"/><text class="l36 mono" x="1082" y="394" text-anchor="middle">MCP</text>
+            </g>
+            <rect id="a2beam" x="430" y="310" width="20" height="142" rx="8" style="fill:var(--s-accent);opacity:.45"/>
+            <g id="a2mg" data-fact="F262"><circle cx="1268" cy="352" r="34" class="ic sky" style="stroke-width:6"/><path class="ic sky" style="stroke-width:8" d="M1293,377 L1322,406"/></g>
+            <!-- 두 갈래 길 -->
+            <g id="a2fork"><path class="ln" d="M800,470 V502 H412 V532"/><path class="ln" d="M800,470 V502 H1188 V532"/></g>
+            <!-- 왼쪽 길: 새 프로젝트 → 처음부터 새로 구축 -->
+            <g id="a2L" data-fact="F517">
+              <text class="l36" x="412" y="572" text-anchor="middle">새 프로젝트</text>
+              <rect class="bx2" x="180" y="612" width="64" height="26" rx="6"/>
+              <rect class="bx2" x="180" y="626" width="150" height="92" rx="12"/>
+              <path class="ln" d="M352,668 H428 M416,656 L430,668 L416,680"/>
+              <text class="l36" x="556" y="766" text-anchor="middle">처음부터 새로 구축</text>
+            </g>
+            <!-- 바닥부터 쌓이는 하네스 블록 셋: S01 하네스 묶음과 같은 모양(.hb 테두리 + .hbi 아이콘) — 작업 순서 · 에이전트 · 스킬 -->
+            <g class="a2stk" data-fact="F517"><rect class="hb" x="460" y="666" width="92" height="52" rx="10" style="stroke-width:3"/><path class="hbi" style="stroke-width:3" d="M484,680 L494,692 L484,704 M500,680 L510,692 L500,704 M516,680 L526,692 L516,704"/></g>
+            <g class="a2stk" data-fact="F517"><rect class="hb" x="560" y="666" width="92" height="52" rx="10" style="stroke-width:3"/><rect class="hbi" style="stroke-width:3" x="590" y="682" width="32" height="24" rx="6"/><path class="hbi" style="stroke-width:3" d="M606,682 V674"/><circle cx="599" cy="694" r="3" style="fill:var(--s-accent)"/><circle cx="613" cy="694" r="3" style="fill:var(--s-accent)"/></g>
+            <g class="a2stk" data-fact="F517"><rect class="hb" x="510" y="608" width="92" height="52" rx="10" style="stroke-width:3"/><path class="hbi" style="stroke-width:3" d="M542,626 H550 a4,4 0 1 1 8,0 H566 V634 a4,4 0 1 1 0,8 V650 H542 Z"/></g>
+            <!-- 오른쪽 길: 하네스가 있는 프로젝트 → 바뀐 것부터 알림 → 필요한 단계만 확장 -->
+            <g id="a2R" data-fact="F518">
+              <text class="l36" x="1188" y="572" text-anchor="middle">하네스가 있는 프로젝트</text>
+              <rect class="bx2" x="870" y="612" width="64" height="26" rx="6" style="stroke:var(--s-key)"/>
+              <rect class="bx2" x="870" y="626" width="150" height="92" rx="12" style="stroke:var(--s-key)"/>
+              <rect class="a2blk" x="891" y="638" width="50" height="30" rx="6"/><rect class="a2blk" x="949" y="638" width="50" height="30" rx="6"/>
+              <rect class="a2blk" x="891" y="676" width="50" height="30" rx="6"/><rect class="a2blk" x="949" y="676" width="50" height="30" rx="6"/>
+              <path class="ln" d="M1040,672 H1120 M1108,660 L1122,672 L1108,684"/>
+              <rect class="hb" x="1146" y="636" width="330" height="82" rx="14"/>
+              <rect class="a2blk" x="1167" y="652" width="60" height="50" rx="10"/>
+              <rect class="a2blk" x="1243" y="652" width="60" height="50" rx="10"/>
+              <rect class="a2blk" x="1319" y="652" width="60" height="50" rx="10"/>
+            </g>
+            <rect id="a2new" class="a2blk" x="1395" y="652" width="60" height="50" rx="10" style="fill:var(--s-accent)"/>
+            <!-- 한 박자용 알림: 결과 라벨 자리에 잠깐 떴다가 '필요한 단계만 확장'으로 바뀐다 -->
+            <g id="a2note" data-fact="F357">
+              <rect x="1163" y="728" width="296" height="42" rx="21" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:2"/>
+              <text class="l28" x="1311" y="759" text-anchor="middle">바뀐 것부터 알림</text>
+            </g>
+            <text id="a2Rt" class="l36" x="1311" y="766" text-anchor="middle" data-fact="F518 F520">필요한 단계만 확장</text>
+          </svg>
+        </section>
+
+        <!-- ===== S04 카탈로그: '57'과 분야별 빈 박스 8개가 서고, 박스마다 개수만큼 칸이 차오르며 라벨 숫자가 0에서 올라간다. 가장 많은 UI/UX 14 박스 테두리가 한 번 빛난다 ===== -->
+        <section class="scene" id="s04" data-scene="S04" data-duration="6.5" data-label="CATALOG" data-title="쓸만한 스킬 57개, 카탈로그에 골라 모아 뒀어요" data-tracker="스킬 찾기" aria-label="장면 3 쓸만한 스킬 57개, 카탈로그에 골라 모아 뒀어요">
+          <header class="hud2" id="a4h">
+            <p class="hud-tag">CATALOG</p>
+            <h3 class="hud-h" data-fact="F334 F508 F213">쓸만한 스킬 57개, 카탈로그에 골라 모아 뒀어요</h3>
+            <p class="hud-p" data-fact="F508">한국어·문서부터 UI/UX, 개발·리뷰, 테스트·보안, 토큰 절약까지 분야별로 모았어요.</p>
+          </header>
+          <ol class="narr" hidden>
+            <li data-at="0" data-fact="F334">쓸 만한 스킬, 어디서 찾을지 헤매셨나요?</li>
+            <li data-at="2.2" data-fact="F328 F334">직접 써보고 좋았던 도구 57개 카탈로그에 정리해놨어요.</li>
+          </ol>
+          <svg class="sv" viewBox="0 0 1600 900" aria-hidden="true">
+            <g id="a4n" data-fact="F328 F334">
+              <text class="a4num" x="204" y="322" text-anchor="end" style="fill:var(--s-accent)">57</text>
+              <text class="l40" x="232" y="314">카탈로그 도구</text>
+            </g>
+            <!-- 분야별 박스 8개(4열 × 2행, 폭 350 · 높이 180 · 사이 24/20, x 64~1536 · y 352~732). 칸(38, 사이 7, 한 줄 7칸)은 타임라인이 만든다. 칸에는 이름을 붙이지 않는다.
+                 박스 합은 51이고 57과 다르다 — 57 옆에 합계·'='를 두지 않고, 박스에서 57로 모이는 움직임도 없다 -->
+            <g id="a4bx">
+              <g id="a4b0" data-fact="F661"><rect class="a4box" x="64" y="352" width="350" height="180" rx="20"/><text class="l36" x="88" y="404">한국어·문서 <tspan id="a4k0" class="a4k">3</tspan></text></g>
+              <g id="a4b1" data-fact="F331"><rect id="a4r1" class="a4box" x="438" y="352" width="350" height="180" rx="20"/><text class="l36" x="462" y="404">UI/UX <tspan id="a4k1" class="a4k">14</tspan></text></g>
+              <g id="a4b2" data-fact="F663"><rect class="a4box" x="812" y="352" width="350" height="180" rx="20"/><text class="l36" x="836" y="404">개발·리뷰 <tspan id="a4k2" class="a4k">10</tspan></text></g>
+              <g id="a4b3" data-fact="F664"><rect class="a4box" x="1186" y="352" width="350" height="180" rx="20"/><text class="l36" x="1210" y="404">테스트·보안 <tspan id="a4k3" class="a4k">9</tspan></text></g>
+              <g id="a4b4" data-fact="F665"><rect class="a4box" x="64" y="552" width="350" height="180" rx="20"/><text class="l36" x="88" y="604">토큰 절약·측정 <tspan id="a4k4" class="a4k">2</tspan></text></g>
+              <g id="a4b5" data-fact="F666"><rect class="a4box" x="438" y="552" width="350" height="180" rx="20"/><text class="l36" x="462" y="604">문서화·리서치 <tspan id="a4k5" class="a4k">6</tspan></text></g>
+              <g id="a4b6" data-fact="F667"><rect class="a4box" x="812" y="552" width="350" height="180" rx="20"/><text class="l36" x="836" y="604">상시 적용 <tspan id="a4k6" class="a4k">3</tspan></text></g>
+              <g id="a4b7" data-fact="F668"><rect class="a4box" x="1186" y="552" width="350" height="180" rx="20"/><text class="l36" x="1210" y="604">선택 <tspan id="a4k7" class="a4k">4+</tspan></text></g>
+            </g>
+            <!-- 선택: 칸 4개 뒤 점선 빈 칸 하나와 '+'(README 표가 '… 등'으로 열린 목록) -->
+            <g id="a4open"><rect class="a4open" x="1387" y="630" width="38" height="38" rx="8"/><text class="l32 mu" x="1406" y="660" text-anchor="middle">+</text></g>
+          </svg>
+        </section>
+
+        <!-- ===== S05 골라 담기: 바구니 위 목표 카드('목표 = PPT 제작')가 먼저 서고, 목표에서 나온 점선이 더미 속 맞는 카드 셋을 가리키면 그 카드가 바구니로 간다. 웹 돋보기는 그동안 따로 훑고, 데려온 '새로 찾은 스킬' 카드가 바구니에 한 장 더 얹힌다 ===== -->
+        <section class="scene" id="s05" data-scene="S05" data-duration="9" data-label="PICK · WEB" data-title="목표에 맞게 골라 담고, 웹에서 찾은 스킬도 더해요" data-tracker="스킬 찾기" aria-label="장면 4 목표에 맞게 골라 담고, 웹에서 찾은 스킬도 더해요">
+          <header class="hud2" id="a5h">
+            <p class="hud-tag">PICK · WEB</p>
+            <h3 class="hud-h" data-fact="F267 F515">목표에 맞게 골라 담고, 웹에서 찾은 스킬도 더해요</h3>
+            <p class="hud-p" data-fact="F267 F515 F058">목표에 맞는 스킬을 카탈로그에서 골라 담고, 웹에서도 매번 찾아 함께 골라요.</p>
+          </header>
+          <ol class="narr" hidden>
+            <li data-at="0" data-fact="F267 F058">일에 필요한 역량을 정하고, 카탈로그에서 맞는 스킬을 골라 담습니다.</li>
+            <li data-at="3.8" data-fact="F515 F058">카탈로그에만 머물지 않고 웹에서도 더 나은 스킬을 찾아, 괜찮으면 함께 담습니다.</li>
+          </ol>
+          <span class="a bdg ex" id="a5x" style="right:64px;top:36px">예시</span>
+          <svg class="sv" viewBox="0 0 1600 900" aria-hidden="true">
+            <!-- 왼쪽 덩어리: 카탈로그 더미(이름 없는 카드가 흩어져 겹침, 기울기는 data-r) -->
+            <text id="a5cl" class="l36" x="80" y="300">카탈로그</text>
+            <g id="a5pile">
+              <rect class="a5c" data-r="-5" x="96" y="330" width="252" height="110" rx="14"/>
+              <rect class="a5c" data-r="4" x="360" y="322" width="252" height="110" rx="14"/>
+              <rect class="a5c" data-r="-4" x="448" y="412" width="252" height="110" rx="14"/>
+              <rect class="a5c" data-r="4" x="90" y="446" width="252" height="110" rx="14"/>
+              <rect class="a5c" data-r="-2" x="300" y="478" width="252" height="110" rx="14"/>
+              <rect class="a5c" data-r="3" x="250" y="604" width="252" height="110" rx="14"/>
+              <rect class="a5c" data-r="-6" x="150" y="646" width="252" height="110" rx="14"/>
+              <rect class="a5c" data-r="-3" x="420" y="646" width="252" height="110" rx="14"/>
+            </g>
+            <!-- 바구니 위: 목표 카드(과녁 선 아이콘 + '목표 = PPT 제작') + 바구니로 내려가는 짧은 선 -->
+            <g id="a5goal">
+              <rect id="a5gr" class="a5goal" x="1018" y="232" width="420" height="72" rx="18"/>
+              <g class="ic" style="stroke-width:4"><circle cx="1062" cy="268" r="20"/><circle cx="1062" cy="268" r="10"/><circle cx="1062" cy="268" r="2"/></g>
+              <text class="l40 sc" x="1098" y="282">목표 = PPT 제작</text>
+            </g>
+            <path id="a5gl" class="ln" d="M1228,304 V346"/>
+            <!-- 오른쪽 덩어리: 위가 열린 바구니 'PPT 프로젝트' + 카탈로그에서 고른 카드 자리 셋(넷째 자리는 칸을 그리지 않는다 — 빈 칸을 채우러 웹을 찾는 것이 아님) -->
+            <g id="a5bk">
+              <path class="a5bk" d="M904,352 H920 V620 Q920,660 960,660 H1496 Q1536,660 1536,620 V352 H1552"/>
+              <rect class="a5slot" x="936" y="376" width="284" height="110" rx="14"/>
+              <rect class="a5slot" x="1236" y="376" width="284" height="110" rx="14"/>
+              <rect class="a5slot" x="936" y="510" width="284" height="110" rx="14"/>
+              <text class="l36" x="1228" y="716" text-anchor="middle">PPT 프로젝트</text>
+            </g>
+            <!-- 가운데 아래 덩어리: 웹 탐색(카탈로그와 별개로 매번) -->
+            <g id="a5web" data-fact="F515">
+              <g class="ic" style="stroke-width:4"><circle cx="784" cy="716" r="32"/><path d="M752,716 H816 M784,684 C766,700 766,732 784,748 C802,732 802,700 784,684"/></g>
+              <text class="l36" x="836" y="708">웹 탐색</text>
+              <text class="l28 mu" x="836" y="750">매번 따로 찾아봄</text>
+            </g>
+            <g id="a5mg" class="ic sky" style="stroke-width:5"><circle cx="790" cy="700" r="20"/><path d="M804,714 L822,732" style="stroke-width:7"/></g>
+            <!-- 목표 카드에서 더미 속 맞는 카드로 가는 점선(차례로 하나씩) -->
+            <path id="a5p1" class="a5pt" d="M1018,268 L412,455"/>
+            <path id="a5p2" class="a5pt" d="M1018,268 L238,615"/>
+            <path id="a5p3" class="a5pt" d="M1018,268 L582,595"/>
+            <!-- 이름 카드 셋: 바구니 자리에 그리고, 더미 자리에서 출발한다 -->
+            <g id="a5n1" data-fact="F491"><rect class="a5c" x="936" y="376" width="284" height="110" rx="14"/><text class="l32" x="1078" y="422" text-anchor="middle">Anthropic</text><text class="l32" x="1078" y="462" text-anchor="middle">문서 스킬(PPT)</text></g>
+            <g id="a5n2" data-fact="F516"><rect class="a5c" x="1236" y="376" width="284" height="110" rx="14"/><text class="l32" x="1378" y="442" text-anchor="middle">한국어 윤문</text></g>
+            <g id="a5n3" data-fact="F498"><rect class="a5c" x="936" y="510" width="284" height="110" rx="14"/><text class="l32" x="1078" y="576" text-anchor="middle">design-qa</text></g>
+            <!-- 웹에서 데려와 한 장 더 얹히는 카드: 큰 라벨 '새로 찾은 스킬' + 작은 '웹 검색'(S07 자료 조사 상자의 첫 카드와 같은 모양) -->
+            <g id="a5wk" data-fact="F515"><rect x="1236" y="510" width="284" height="110" rx="14" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3"/>
+              <text class="l32" x="1378" y="556" text-anchor="middle" style="font-weight:700">새로 찾은 스킬</text>
+              <text class="l28 mu" x="1378" y="598" text-anchor="middle">웹 검색</text></g>
+            <g id="a5ok"><circle cx="1390" cy="704" r="24" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3"/><path class="ck" d="M1378,704 L1386,712 L1402,696" style="stroke-width:5"/></g>
+          </svg>
+        </section>
+
+        <!-- ===== S05a MY CATALOG: 덩어리 셋(사이 64). A 폰 피드를 넘기다 '이 스킬' 카드 발견 → B 말풍선 '이 스킬 카탈로그에 넣어줘', 카드가 날아가 '내 카탈로그'에 저장(점검은 안 보임) → C '나중에' '하네스 만들기' 후보 목록에 같은 카드가 '내 카탈로그' 배지를 달고 올라와 ✓ ===== -->
+        <section class="scene" id="s12" data-scene="S05a" data-tracker="스킬 찾기" data-duration="9.5" data-label="MY CATALOG" data-title="SNS에서 본 괜찮은 스킬, 내 카탈로그에 담아 두세요" aria-label="장면 5 SNS에서 본 괜찮은 스킬, 내 카탈로그에 담아 두세요">
+          <header class="hud2">
+            <p class="hud-tag">MY CATALOG</p>
+            <h3 class="hud-h" data-fact="F190 F192 F199">SNS에서 본 괜찮은 스킬, 내 카탈로그에 담아 두세요</h3>
+            <p class="hud-p" data-fact="F190 F192">봐 두고 까먹던 스킬, 이제 실제로 쓸 수 있게 저장해요.</p>
+          </header>
+          <ol class="narr" hidden>
+            <li data-at="0.3" data-fact="F190">SNS에서 본 좋은 스킬, 나중에 써야지 하고 잊어버리진 않으셨나요?</li>
+            <li data-at="4.2" data-fact="F190 F192">링크나 이름만 주면 설치 없이 담아 두고, 하네스 만들 때 후보로 올립니다.</li>
+          </ol>
+          <svg class="sv" viewBox="0 0 1600 900" aria-hidden="true">
+            <!-- 덩어리 B(x 484~860), 2박자: 말풍선(y 270~410, 꼬리가 폰 쪽) -->
+            <g id="v12bub" data-fact="F190">
+              <path class="v12box" d="M508,270 H836 Q860,270 860,294 V386 Q860,410 836,410 H508 Q484,410 484,386 V376 L448,400 L484,344 V294 Q484,270 508,270 Z"/>
+              <text class="l36" x="672" y="328" text-anchor="middle">이 스킬</text>
+              <text class="l36" x="672" y="380" text-anchor="middle">카탈로그에 넣어줘</text>
+            </g>
+            <!-- 2박자: '내 카탈로그' 상자(y 474~760) + 이미 담아 둔 이름 없는 카드 두 장(살짝 어긋나 쌓임). 맨 위 자리(x 539~773, y 584~661)에 날아온 카드가 앉는다 -->
+            <g id="v12my" data-fact="F190 F192">
+              <rect id="v12myr" class="v12box" x="484" y="474" width="376" height="286" rx="24"/>
+              <text class="l36 sc" x="508" y="524">내 카탈로그</text>
+              <rect class="v12nc" x="571" y="624" width="234" height="77" rx="13"/>
+              <rect class="v12nc" x="555" y="604" width="234" height="77" rx="13"/>
+            </g>
+            <!-- 덩어리 C(x 924~1520), 3박자: '나중에' 태그(y 262~306) -->
+            <g id="v12later" data-fact="F192 F199">
+              <rect x="924" y="262" width="164" height="44" rx="22" style="fill:var(--s-bg);stroke:var(--s-line);stroke-width:2"/>
+              <circle class="v12clk" cx="952" cy="284" r="12"/><path class="v12clk" d="M952,276 V284 L958,288"/>
+              <text class="l28 sc" x="974" y="294" style="font-weight:700">나중에</text>
+            </g>
+            <!-- 3박자: '하네스 만들기' 칸(y 330~760) + 키트 카탈로그 후보 두 줄(이름 없음, 퍼즐 아이콘만). 셋째 줄(y 632~728)은 카드가 들어오며 생김 -->
+            <g id="v12mk" data-fact="F055">
+              <rect class="bx2" x="924" y="330" width="596" height="430" rx="24"/>
+              <text class="l36 sc" x="956" y="376">하네스 만들기</text>
+              <rect class="bx" x="956" y="400" width="532" height="96" rx="16"/>
+              <path class="v12pz" d="M982,440 H991 a5,5 0 1 1 10,0 H1008 V447 a5,5 0 1 1 0,10 V462 H982 Z"/>
+              <rect class="bx" x="956" y="508" width="532" height="96" rx="16"/>
+              <path class="v12pz" d="M982,548 H991 a5,5 0 1 1 10,0 H1008 V555 a5,5 0 1 1 0,10 V570 H982 Z"/>
+            </g>
+          </svg>
+          <!-- 덩어리 A(x 80~420, y 260~770): 폰 틀(로고·SNS 모양 없음) + 화면 속 피드(사진 카드 사이 스킬 카드 하나, 하트·공유 없음) -->
+          <div class="a v12ph" id="v12ph" aria-hidden="true"></div>
+          <div class="a v12scr" id="v12scr" aria-hidden="true"><div class="v12feed" id="v12feed">
+            <div class="v12pic" style="top:-409px"><svg width="120" height="80" viewBox="0 0 120 80"><circle cx="90" cy="22" r="12"/><path d="M8,72 L44,28 L66,54 L80,40 L112,72 Z"/></svg></div>
+            <div class="v12pic" style="top:-213px"><svg width="120" height="80" viewBox="0 0 120 80"><circle cx="90" cy="22" r="12"/><path d="M8,72 L44,28 L66,54 L80,40 L112,72 Z"/></svg></div>
+            <div class="v12pic" style="top:-17px"><svg width="120" height="80" viewBox="0 0 120 80"><circle cx="90" cy="22" r="12"/><path d="M8,72 L44,28 L66,54 L80,40 L112,72 Z"/></svg></div>
+            <div class="v12card v12sk" id="v12sk" data-fact="F190"><svg width="40" height="40" viewBox="0 0 40 40"><path d="M6,12 H15 a5,5 0 1 1 10,0 H32 V19 a5,5 0 1 1 0,10 V34 H6 Z"/></svg><span>이 스킬</span></div>
+            <div class="v12pic" style="top:299px"><svg width="120" height="80" viewBox="0 0 120 80"><circle cx="90" cy="22" r="12"/><path d="M8,72 L44,28 L66,54 L80,40 L112,72 Z"/></svg></div>
+          </div></div>
+          <!-- 날아가는 카드: 폰 가운데(x 104~396, y 475~571)에서 나와 곡선으로 상자 카드 더미 맨 위에 0.8배로 앉아 남는다 -->
+          <div class="a v12card" id="v12f1" style="left:104px;top:475px" aria-hidden="true" data-fact="F190"><svg width="40" height="40" viewBox="0 0 40 40"><path d="M6,12 H15 a5,5 0 1 1 10,0 H32 V19 a5,5 0 1 1 0,10 V34 H6 Z"/></svg><span>이 스킬</span></div>
+          <!-- 올라오는 같은 카드: 상자 맨 위 카드 자리에서 떠올라 후보 목록 셋째 줄(x 956~1488, y 632~728)에 앉는다 -->
+          <div class="a v12card" id="v12f2" style="left:956px;top:632px" aria-hidden="true" data-fact="F192 F199"><svg width="40" height="40" viewBox="0 0 40 40"><path d="M6,12 H15 a5,5 0 1 1 10,0 H32 V19 a5,5 0 1 1 0,10 V34 H6 Z"/></svg><span>이 스킬</span></div>
+          <span class="a v12bdg" id="v12bdg" style="left:1220px;top:612px" data-fact="F192 F199">내 카탈로그</span>
+          <div class="a" id="v12ok" style="left:1416px;top:656px;width:48px;height:48px" aria-hidden="true"><svg width="48" height="48" viewBox="0 0 48 48"><circle cx="24" cy="24" r="24" style="fill:var(--s-accent)"/><path d="M14,25 L21,32 L34,17" style="fill:none;stroke:var(--s-on-key);stroke-width:5;stroke-linecap:round;stroke-linejoin:round"/></svg></div>
+        </section>
+
+        <!-- ===== S03 충돌 체크: 카드 둘('작업 절차 스킬' / '답변 스타일 스킬')에서 말풍선이 하나씩 튀어나와 가운데 '응답 첫 줄' 상자를 양쪽에서 당긴다.
+             해결안 하나를 고르면(✓) 아래에서 CLAUDE.md 카드가 올라와 우선순위 한 줄이 써지고, 상자가 '① 결론 / ② 스킬 안내 (짧게)' 두 줄로 정리된다.
+             마지막에 무대 아래(y 730~780) 강조 줄 '스킬 우선순위를 정해 충돌을 해결해 드려요'(11차) ===== -->
+        <section class="scene" id="s03" data-scene="S05b" data-duration="12" data-label="CONFLICT" data-title="인기 스킬, 무작정 다 깔면 충돌할 수 있어요" data-tracker="점검·설치" aria-label="장면 6 인기 스킬, 무작정 다 깔면 충돌할 수 있어요">
+          <header class="hud2" id="a3h">
+            <p class="hud-tag">CONFLICT</p>
+            <h3 class="hud-h" data-fact="F039 F514">인기 스킬, 무작정 다 깔면 충돌할 수 있어요</h3>
+            <p class="hud-p" data-fact="F047 F020">스킬마다 하는 일은 좋아도, 지시가 서로 어긋나면 결과가 흔들려요.</p>
+          </header>
+          <ol class="narr" hidden>
+            <li data-at="0" data-fact="F039 F020">스킬끼리 지시가 부딪히는지, 설치 전에 찾아 드립니다.</li>
+            <li data-at="6.1" data-fact="F266 F048">스킬 우선순위를 정해 충돌을 해결해드립니다.</li>
+          </ol>
+          <svg class="sv" viewBox="0 0 1600 900" aria-hidden="true">
+            <!-- 덩어리 셋: 왼쪽 카드(작업 절차 쪽 = 남색) · 가운데 '응답 첫 줄' 상자 · 오른쪽 카드(답변 스타일 쪽 = 하늘색) (+ 아래 CLAUDE.md 카드) -->
+            <g id="a3cd1" data-fact="F523 F645"><rect class="bx" x="80" y="280" width="440" height="160" rx="20" style="stroke:var(--s-key)"/>
+              <text class="l40 sc" x="300" y="350" text-anchor="middle">작업 절차 스킬</text>
+              <text class="l28 mu" x="300" y="404" text-anchor="middle">Superpowers</text></g>
+            <g id="a3cd2" data-fact="F521"><rect class="bx" x="1080" y="280" width="440" height="160" rx="20" style="stroke:var(--s-accent)"/>
+              <text class="l40 sc" x="1300" y="350" text-anchor="middle">답변 스타일 스킬</text>
+              <text class="l28 mu" x="1300" y="404" text-anchor="middle">Attention-kind</text></g>
+            <!-- 가운데 상자: 두 말풍선이 양쪽에서 잡아당긴다. 해결 뒤에는 큰 이름이 위 작은 라벨로 물러나고 안이 두 줄로 정리된다 -->
+            <g id="a3tg" data-fact="F514"><rect x="620" y="480" width="360" height="120" rx="18" style="fill:var(--s-bg);stroke:var(--s-key);stroke-width:3"/>
+              <text id="a3tt" class="l40" x="800" y="554" text-anchor="middle">응답 첫 줄</text></g>
+            <text id="a3tt2" class="l28 mu" x="800" y="468" text-anchor="middle" style="font-weight:700">응답 첫 줄</text>
+            <g id="a3two" data-fact="F649">
+              <text id="a3l1" class="l32" x="800" y="530" text-anchor="middle" style="fill:var(--s-key);font-weight:700">① 결론</text>
+              <text id="a3l2" class="l32 sc" x="800" y="580" text-anchor="middle">② 스킬 안내 (짧게)</text>
+            </g>
+            <!-- 말풍선과 상자를 잇는 줄, 바깥으로 당기는 화살표(한 박자용) -->
+            <g id="a3rope"><path class="a3pull" d="M596,540 H620"/><path class="a3pull" d="M980,540 H1004"/></g>
+            <g id="a3arw"><path class="a3pull" d="M284,540 H244 M258,526 L242,540 L258,554"/><path class="a3pull" d="M1316,540 H1356 M1342,526 L1358,540 L1342,554"/></g>
+            <!-- 카드에서 튀어나와 상자로 날아가는 말풍선 둘 -->
+            <g id="a3b1" data-fact="F528"><rect class="a3bb" x="296" y="504" width="300" height="72" rx="24"/><path class="a3tl" d="M330,505 L318,484 L352,505"/>
+              <text class="l36" x="446" y="553" text-anchor="middle">스킬부터 불러요</text></g>
+            <g id="a3b2" data-fact="F529"><rect class="a3bb sk" x="1004" y="504" width="300" height="72" rx="24"/><path class="a3tl sk" d="M1270,505 L1282,484 L1248,505"/>
+              <text class="l36" x="1154" y="553" text-anchor="middle">결론부터 써요</text></g>
+            <!-- 충돌: 불꽃 + ✕ '지시 모순' — 무대에서 danger는 여기만 -->
+            <g id="a3bang"><path class="a3pull" style="stroke:var(--s-danger)" d="M626,474 L610,458 M974,474 L990,458 M626,606 L610,622 M974,606 L990,622"/></g>
+            <g id="a3c1" data-fact="F514 F022"><rect x="680" y="414" width="240" height="48" rx="24" style="fill:var(--s-bg);stroke:var(--s-danger);stroke-width:3"/>
+              <path d="M708,429 L726,447 M726,429 L708,447" style="fill:none;stroke:var(--s-danger);stroke-width:4;stroke-linecap:round"/>
+              <text class="l28 dg" x="740" y="448" style="font-weight:700">지시 모순</text></g>
+            <!-- 해결(해결안 셋 중 하나를 고른 예): 작은 ✓ 선택 표시 + '우선순위 한 줄' → 그 오른쪽에 CLAUDE.md 카드가 아래에서 올라와 한 줄이 써진다.
+                 11차: 강조 줄(y 730~780)과 겹치지 않게 ✓·라벨·카드를 한 줄(y 628~700)로 올림 -->
+            <g id="a3pick"><circle cx="215" cy="664" r="18" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3"/><path class="ck" d="M206,664 L213,671 L225,658" style="stroke-width:4"/></g>
+            <text id="a3pl" class="l28 sc" x="245" y="674" data-fact="F648" style="font-weight:700">우선순위 한 줄</text>
+            <g id="a3md">
+              <rect class="a3doc" x="453" y="628" width="950" height="72" rx="16"/>
+              <g class="ic" style="stroke-width:3"><path d="M477,647 H497 L507,657 V681 H477 Z M497,647 V657 H507"/></g>
+              <text class="l28 mono" x="521" y="674">CLAUDE.md</text>
+              <path class="ln" d="M692,646 V682" style="stroke-width:2"/>
+              <text id="a3ml" class="l32" x="712" y="675" data-fact="F649">답변 첫 문장은 결론. 스킬 안내는 그 뒤에 짧게.</text>
+            </g>
+            <g id="a3ok"><circle cx="980" cy="480" r="22" style="fill:var(--s-accent)"/><path d="M970,480 L977,487 L991,472" style="fill:none;stroke:var(--s-bg);stroke-width:5;stroke-linecap:round;stroke-linejoin:round"/></g>
+            <!-- 11차 마지막 등장: 무대 아래 강조 줄(40px, primary) -->
+            <text id="a3em" class="l40 sc" x="800" y="768" text-anchor="middle" data-fact="F648 F048">스킬 우선순위를 정해 충돌을 해결해 드려요</text>
+          </svg>
+        </section>
+
+        <!-- ===== S06 SECURITY: 'skills' 탭이 붙은 카드 7장이 컨베이어로 두 문(충돌 체크 → 보안 체크)을 차례로 지나며 두 장이 아래로 걸러지고, 나머지는 탭과 함께 승인 뒤 PPT 프로젝트 폴더로 ===== -->
+        <section class="scene" id="s06" data-scene="S06" data-duration="10.5" data-label="SECURITY" data-title="설치 전에, 충돌·보안 검사부터" data-tracker="점검·설치" aria-label="장면 7 설치 전에, 충돌·보안 검사부터">
+          <header class="hud2" id="g6h">
+            <p class="hud-tag">SECURITY</p>
+            <h3 class="hud-h" data-fact="F052 F076">설치 전에, 충돌·보안 검사부터</h3>
+            <p class="hud-p" data-fact="F076">스킬은 전역이 아니라, 기본으로 이 프로젝트에만 설치돼요.</p>
+          </header>
+          <ol class="narr" hidden>
+            <li data-at="0" data-fact="F039 F061">설치 전에 충돌 체크를 하고, NVIDIA SkillSpector로 보안 점검도 합니다.</li>
+            <li data-at="5" data-fact="F052 F269 F077">통과한 것만 승인받아 설치해 다른 프로젝트의 스킬과 부딪히지 않습니다.</li>
+          </ol>
+          <span class="a bdg ex" id="g6x" style="right:64px;top:36px">예시</span>
+          <svg class="sv" viewBox="0 0 1600 900" aria-hidden="true">
+            <path id="g6belt" class="ln" d="M40,556 H1350" style="stroke-width:4;stroke-dasharray:22 14"/>
+            <!-- PPT 프로젝트 폴더: 통과한 카드 다섯이 안에 겹치지 않게 한 줄로 선다. 라벨은 폴더 위(카드가 승인 원 아래로 돌아 폴더 왼쪽 아래로 들어오는 길을 비움) -->
+            <g id="g6fo" data-fact="F076 F078">
+              <path id="g6fp" class="ln" d="M1366,456 Q1366,440 1382,440 H1434 L1452,458 H1520 Q1536,458 1536,474 V540 Q1536,556 1520,556 H1382 Q1366,556 1366,540 Z" style="stroke-width:4;fill:var(--s-bg)"/>
+              <text class="l36" x="1536" y="376" text-anchor="end">PPT 프로젝트</text>
+              <text class="l28 mono mu" x="1536" y="414" text-anchor="end">.claude/skills</text>
+            </g>
+            <!-- 승인 체크: 라벨은 두 문 라벨과 같은 줄(y 300) — 승인 앞에 멈춘 카드 줄의 skills 탭과 겹치지 않게 -->
+            <g id="g6ok" data-fact="F269"><text class="l36" x="1250" y="300" text-anchor="middle">승인</text><circle id="g6rr" cx="1250" cy="500" r="44" style="fill:none;stroke:var(--s-line);stroke-width:4"/></g>
+            <!-- 스킬 카드 7장(이름 없음, 모두 같은 모양 — 출처 구분 없음) -->
+            <rect id="g6c0" class="bx" x="64" y="450" width="64" height="100" rx="12"/>
+            <rect id="g6c1" class="bx" x="138" y="450" width="64" height="100" rx="12"/>
+            <rect id="g6c2" class="bx" x="212" y="450" width="64" height="100" rx="12"/>
+            <rect id="g6c3" class="bx" x="286" y="450" width="64" height="100" rx="12"/>
+            <rect id="g6c4" class="bx" x="360" y="450" width="64" height="100" rx="12"/>
+            <rect id="g6c5" class="bx" x="434" y="450" width="64" height="100" rx="12"/>
+            <rect id="g6c6" class="bx" x="508" y="450" width="64" height="100" rx="12"/>
+            <path id="g6ck" class="ck" d="M1228,502 L1244,518 L1274,484" style="stroke-width:8"/>
+            <!-- 첫 문: 충돌 체크 → 둘째 문: 보안 체크(방패) -->
+            <g id="g6d1" data-fact="F039"><text class="l36" x="740" y="300" text-anchor="middle">충돌 체크</text><path id="g6f1" class="ln" d="M680,562 V332 Q680,318 694,318 H786 Q800,318 800,332 V562" style="stroke-width:12"/><g class="ic sky" style="stroke-width:4"><circle cx="735" cy="362" r="13"/><path d="M744,371 L756,383"/></g></g>
+            <g id="g6d2" data-fact="F061"><text class="l36" x="1070" y="300" text-anchor="middle">보안 체크</text><path id="g6f2" class="ln" d="M1010,562 V332 Q1010,318 1024,318 H1116 Q1130,318 1130,332 V562" style="stroke-width:12"/><path class="ic sky" style="stroke-width:4" d="M1070,344 L1088,351 V364 Q1088,378 1070,386 Q1052,378 1052,364 V351 Z"/></g>
+            <!-- 카드 줄 왼쪽 위에 붙은 mono 탭 'skills'(문 기둥보다 앞 층 — 기둥 선이 탭 글자 위를 지나지 않게): 줄 맨 뒤 카드(0번)와 한 묶음으로 움직이고, 카드와 함께 폴더로 들어가며 사라진다 -->
+            <g id="g6lb"><path d="M64,450 V420 Q64,406 78,406 H190 Q204,406 204,420 V450 Z" style="fill:var(--s-key)"/><text class="l30 mono" x="134" y="437" text-anchor="middle" style="fill:var(--s-on-key)">skills</text></g>
+            <!-- 걸린 카드의 표시: 아래로 튕긴 카드 밑에 danger 칩(자물쇠·X 없음, 수 없음) -->
+            <g id="g6j1" data-fact="F039"><rect class="dgs" x="692" y="674" width="96" height="44" rx="22" style="fill:var(--s-bg);stroke:var(--s-danger);stroke-width:3"/><text class="l28 dg" x="740" y="706" text-anchor="middle" style="fill:var(--s-danger);font-weight:700">충돌</text></g>
+            <g id="g6j2" data-fact="F061 F068"><rect class="dgs" x="932" y="674" width="276" height="44" rx="22" style="fill:var(--s-bg);stroke:var(--s-danger);stroke-width:3"/><text class="l28 mono dg" x="1070" y="706" text-anchor="middle" style="fill:var(--s-danger);font-weight:700">DO_NOT_INSTALL</text><text class="l36 mu" x="1070" y="764" text-anchor="middle">설치 보류</text></g>
+          </svg>
+        </section>
+
+        <!-- ===== S07 ASSIGN: 에이전트 상자 넷(모델·추론 강도 태그) 위로 이미 있는 스킬 카드가 촤르륵 꽂힘 ===== -->
+        <section class="scene" id="s07" data-scene="S07" data-duration="9" data-label="ASSIGN" data-title="에이전트마다 맞는 스킬과 모델을 배정해요" data-tracker="설계·조립" aria-label="장면 8 에이전트마다 맞는 스킬과 모델을 배정해요">
+          <header class="hud2" id="g7h">
+            <p class="hud-tag">ASSIGN</p>
+            <h3 class="hud-h" data-fact="F060 F275">에이전트마다 맞는 스킬과 모델을 배정해요</h3>
+            <p class="hud-p" data-fact="F060 F111 F536">있는 스킬은 다시 만들지 않고 연결하고 모델과 추론 강도는 역할에 맞게 나눠요.</p>
+          </header>
+          <ol class="narr" hidden>
+            <li data-at="0" data-fact="F001 F275">목표에 맞는 에이전트 팀을 짜고, 스킬도 역할에 맞게 배정해 드립니다.</li>
+            <li data-at="4.9" data-fact="F111">중요한 에이전트라고 모두 opus로 두지 않고 맡은 일에 맞춰 고릅니다.</li>
+          </ol>
+          <span class="a bdg ex" id="g7x" style="right:64px;top:36px">예시</span>
+          <svg class="sv" viewBox="0 0 1600 900" aria-hidden="true">
+            <!-- 에이전트 상자 넷(폭 344, 사이 32): 슬롯(점선 홈) + 로봇 얼굴·담당 이름 + 모델 칩(추론 강도는 3칸 눈금) -->
+            <g id="g7b0"><rect id="g7r0" class="agbox" x="64" y="400" width="344" height="344" rx="24"/><rect x="88" y="424" width="296" height="100" rx="16" class="ln dl" style="stroke-width:2"/><g class="agf" transform="translate(130 600) scale(1.1)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><text class="l30" x="184" y="612" style="font-weight:700">자료 조사</text><g id="g7t0" data-fact="F537"><rect class="agchip" x="139" y="672" width="150" height="44" rx="22"/><text class="agt" x="214" y="704" text-anchor="middle">sonnet</text><rect class="agbar on" x="301" y="696" width="8" height="12" rx="2"/><rect class="agbar" x="313" y="688" width="8" height="20" rx="2"/><rect class="agbar" x="325" y="680" width="8" height="28" rx="2"/></g></g>
+            <g id="g7b1"><rect id="g7r1" class="agbox" x="440" y="400" width="344" height="344" rx="24"/><rect x="464" y="424" width="296" height="100" rx="16" class="ln dl" style="stroke-width:2"/><g class="agf" transform="translate(506 600) scale(1.1)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><text class="l30" x="560" y="612" style="font-weight:700">슬라이드 작성</text><g id="g7t1" data-fact="F130"><rect class="agchip op" x="515" y="672" width="150" height="44" rx="22"/><text class="agt op" x="590" y="704" text-anchor="middle">opus</text><rect class="agbar on" x="677" y="696" width="8" height="12" rx="2"/><rect class="agbar on" x="689" y="688" width="8" height="20" rx="2"/><rect class="agbar" x="701" y="680" width="8" height="28" rx="2"/></g></g>
+            <g id="g7b2"><rect id="g7r2" class="agbox" x="816" y="400" width="344" height="344" rx="24"/><rect x="840" y="424" width="296" height="100" rx="16" class="ln dl" style="stroke-width:2"/><g class="agf" transform="translate(882 600) scale(1.1)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><text class="l30" x="936" y="612" style="font-weight:700">리뷰</text><g id="g7t2" data-fact="F131 F539"><rect class="agchip op" x="891" y="672" width="150" height="44" rx="22"/><text class="agt op" x="966" y="704" text-anchor="middle">opus</text><rect class="agbar on" x="1053" y="696" width="8" height="12" rx="2"/><rect class="agbar on" x="1065" y="688" width="8" height="20" rx="2"/><rect class="agbar on" x="1077" y="680" width="8" height="28" rx="2"/></g></g>
+            <g id="g7b3"><rect id="g7r3" class="agbox" x="1192" y="400" width="344" height="344" rx="24"/><rect x="1216" y="424" width="296" height="100" rx="16" class="ln dl" style="stroke-width:2"/><g class="agf" transform="translate(1258 600) scale(1.1)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><text class="l30" x="1312" y="612" style="font-weight:700">디자인 QA</text><g id="g7t3" data-fact="F131"><rect class="agchip op" x="1267" y="672" width="150" height="44" rx="22"/><text class="agt op" x="1342" y="704" text-anchor="middle">opus</text><rect class="agbar on" x="1429" y="696" width="8" height="12" rx="2"/><rect class="agbar on" x="1441" y="688" width="8" height="20" rx="2"/><rect class="agbar on" x="1453" y="680" width="8" height="28" rx="2"/></g></g>
+            <!-- 이미 있는 스킬 카드 넷: 위 줄(y 260~360)에 가지런히 → 촤르륵 아래 슬롯으로. 첫 장은 S05 바구니에 얹힌 웹 카드와 같은 모양(새로 찾은 스킬 · 웹 검색) -->
+            <g id="g7k0" data-fact="F515"><rect x="88" y="424" width="296" height="100" rx="16" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3"/><text class="l32" x="236" y="466" text-anchor="middle" style="font-weight:700">새로 찾은 스킬</text><text class="l28 mu" x="236" y="504" text-anchor="middle">웹 검색</text></g>
+            <g id="g7k1" data-fact="F491"><rect x="464" y="424" width="296" height="100" rx="16" style="fill:var(--s-raised);stroke:var(--s-accent);stroke-width:3"/><text class="l36" x="612" y="486" text-anchor="middle">문서 스킬(PPT)</text></g>
+            <g id="g7k2" data-fact="F166"><rect x="840" y="424" width="296" height="100" rx="16" style="fill:var(--s-raised);stroke:var(--s-accent);stroke-width:3"/><text class="l36" x="988" y="486" text-anchor="middle">한국어 윤문</text></g>
+            <g id="g7k3" data-fact="F498"><rect x="1216" y="424" width="296" height="100" rx="16" style="fill:var(--s-raised);stroke:var(--s-accent);stroke-width:3"/><text class="l36" x="1364" y="486" text-anchor="middle">design-qa</text></g>
+            <g id="g7lk" data-fact="F116"><rect x="948" y="378" width="196" height="44" rx="22" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:2"/><g class="ic sky" style="stroke-width:3"><rect x="966" y="397" width="20" height="15" rx="3"/><path d="M970,397 V392 A6,6 0 0 1 982,392 V397"/></g><text class="l28 sc" x="998" y="410" style="font-weight:700">읽기 전용</text></g>
+          </svg>
+        </section>
+
+        <!-- ===== S08 BLUEPRINT: 설계안 4분할(에이전트·스킬 / 지킬 조건 / 작업 흐름) → 승인 버튼 눌림 → 설계안이 띠로 접히고 '하네스 만드는 중' 아래 파일 트리에서 파일이 하나씩 생김 → ✓ ===== -->
+        <section class="scene" id="s08" data-scene="S08" data-duration="13.5" data-label="BLUEPRINT" data-title="계획이 끝나면, 만들기 전에 설계안부터" data-tracker="설계·조립" aria-label="장면 9 계획이 끝나면, 만들기 전에 설계안부터">
+          <header class="hud2" id="g8h">
+            <p class="hud-tag">BLUEPRINT</p>
+            <h3 class="hud-h" data-fact="F093 F272">계획이 끝나면, 만들기 전에 설계안부터</h3>
+            <p class="hud-p" data-fact="F472 F272">작업 흐름·에이전트·스킬·지킬 조건을 먼저 보여 드리고 승인받아야 만들어요.</p>
+          </header>
+          <ol class="narr" hidden>
+            <li data-at="0" data-fact="F093">만든 뒤에 구조를 바꾸느라 다시 고치진 않으셨나요?</li>
+            <li data-at="5.4" data-fact="F094 F272 F093">파일을 만들기 전에 설계안을 먼저 보여 드리고 승인받은 뒤 만듭니다.</li>
+          </ol>
+          <span class="a bdg ex" id="g8x" style="right:64px;top:36px">예시</span>
+          <svg class="sv" viewBox="0 0 1600 900" aria-hidden="true">
+            <!-- 설계안 한 장: 왼쪽 위 에이전트·스킬, 왼쪽 아래 지킬 조건, 오른쪽(위아래 합침) 작업 흐름 -->
+            <g id="g8pn">
+            <rect id="g8pr" class="bx" x="64" y="274" width="1472" height="496" rx="24"/>
+            <g id="g8cl">
+              <rect x="84" y="294" width="848" height="302" rx="16" style="fill:var(--s-bg);stroke:var(--s-line);stroke-width:2"/>
+              <rect x="84" y="616" width="848" height="136" rx="16" style="fill:var(--s-bg);stroke:var(--s-line);stroke-width:2"/>
+              <rect x="952" y="294" width="564" height="458" rx="16" style="fill:var(--s-bg);stroke:var(--s-line);stroke-width:2"/>
+              <!-- 칸마다 핵심 넷 이하: 에이전트 넷(역할 + 스킬) / 체크 셋 / 흐름 넷 -->
+              <g data-fact="F096"><text class="l32" x="108" y="338" style="font-weight:700">에이전트 · 스킬</text>
+              <g><rect class="agbox" x="108" y="358" width="392" height="96" rx="16"/><g class="agf" transform="translate(156 408) scale(0.8)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><text class="l32" x="200" y="395" style="font-weight:700">자료 조사 담당</text><text class="l28 sc" x="200" y="431" style="font-weight:600">arXiv MCP</text></g>
+              <g><rect class="agbox" x="516" y="358" width="392" height="96" rx="16"/><g class="agf" transform="translate(564 408) scale(0.8)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><text class="l32" x="608" y="395" style="font-weight:700">슬라이드 작성 담당</text><text class="l28 sc" x="608" y="431" style="font-weight:600">문서 스킬(PPT)</text></g>
+              <g><rect class="agbox" x="108" y="476" width="392" height="96" rx="16"/><g class="agf" transform="translate(156 526) scale(0.8)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><text class="l32" x="200" y="513" style="font-weight:700">리뷰 담당</text><text class="l28 sc" x="200" y="549" style="font-weight:600">한국어 윤문</text></g>
+              <g><rect class="agbox" x="516" y="476" width="392" height="96" rx="16"/><g class="agf" transform="translate(564 526) scale(0.8)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><text class="l32" x="608" y="513" style="font-weight:700">디자인 QA 담당</text><text class="l28 sc" x="608" y="549" style="font-weight:600">design-qa</text></g>
+              </g>
+              <g data-fact="F098"><text class="l32" x="108" y="660" style="font-weight:700">지킬 조건</text>
+                <rect x="108" y="690" width="36" height="36" rx="8" style="fill:none;stroke:var(--s-line);stroke-width:3"/><text class="l32" x="156" y="720">조건 한 줄 요약</text><path id="g8k0" class="ck" d="M116,708 L124,716 L138,698" style="stroke-width:5"/>
+                <rect x="420" y="690" width="36" height="36" rx="8" style="fill:none;stroke:var(--s-line);stroke-width:3"/><text class="l32" x="468" y="720">지키는 방법</text><path id="g8k1" class="ck" d="M428,708 L436,716 L450,698" style="stroke-width:5"/>
+                <rect x="690" y="690" width="36" height="36" rx="8" style="fill:none;stroke:var(--s-line);stroke-width:3"/><text class="l32" x="738" y="720">확인 수단</text><path id="g8k2" class="ck" d="M698,708 L706,716 L720,698" style="stroke-width:5"/>
+              </g>
+              <g data-fact="F473 F096"><text class="l32" x="976" y="338" style="font-weight:700">작업 흐름</text>
+                <rect x="976" y="366" width="440" height="52" rx="26" style="fill:var(--s-raised);stroke:var(--s-line);stroke-width:2"/><text class="l32" x="996" y="403">① 자료 조사</text>
+                <path class="ln" d="M1196,422 V454" style="stroke-width:2" marker-end="url(#ahm)"/>
+                <rect x="976" y="460" width="440" height="52" rx="26" style="fill:var(--s-raised);stroke:var(--s-line);stroke-width:2"/><text class="l32" x="996" y="497">② 슬라이드 작성</text>
+                <path class="ln" d="M1196,516 V548" style="stroke-width:2" marker-end="url(#ahm)"/>
+                <rect x="976" y="554" width="440" height="52" rx="26" style="fill:var(--s-raised);stroke:var(--s-line);stroke-width:2"/><text class="l32" x="996" y="591">③ 리뷰</text>
+                <path class="ln" d="M1196,610 V642" style="stroke-width:2" marker-end="url(#ahm)"/>
+                <rect x="976" y="648" width="440" height="52" rx="26" style="fill:var(--s-raised);stroke:var(--s-line);stroke-width:2"/><text class="l32" x="996" y="685">④ 윤문 · 디자인 QA</text>
+                <path data-fact="F096 F463" class="ln dl" d="M1418,580 C1482,580 1482,486 1428,486" style="stroke:var(--s-accent)" marker-end="url(#ahs)"/>
+              </g>
+            </g>
+            <g id="g8tab" data-fact="F093"><rect x="88" y="256" width="132" height="44" rx="12" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:2"/><text class="l28" x="108" y="288" style="font-weight:700">설계안</text></g>
+            </g>
+            <!-- 승인 버튼(설계안 오른쪽 위): 2초 가까이 보이다 눌리면 설계안이 접혀 '설계안 ✓' 띠가 된다 -->
+            <g id="g8bt" data-fact="F094"><rect x="1336" y="254" width="176" height="50" rx="25" style="fill:var(--s-key)"/><path id="g8btk" d="M1372,280 L1382,290 L1400,270" style="fill:none;stroke:var(--s-on-key);stroke-width:5;stroke-linecap:round;stroke-linejoin:round"/><text class="l36" x="1416" y="292" style="fill:var(--s-on-key)">승인</text></g>
+            <!-- 3박자(승인 직후): 접힌 설계안 띠 + '하네스 만드는 중'(진행 고리 → ✓) + 프로젝트 파일 트리(파일이 하나씩 생김) -->
+            <g id="g8ok" data-fact="F093 F094"><rect x="64" y="274" width="1472" height="64" rx="20" class="bx"/><text class="l36" x="96" y="319">설계안</text><path class="ck" d="M222,304 L232,314 L252,292" style="stroke-width:5"/></g>
+            <g id="g8mk" data-fact="F093"><text class="l40" x="664" y="420" style="fill:var(--s-key)">하네스 만드는 중</text></g>
+            <circle id="g8rg" cx="630" cy="406" r="18" style="fill:none;stroke:var(--s-accent);stroke-width:5;stroke-linecap:round;stroke-dasharray:44 70"/>
+            <g id="g8dn"><circle cx="630" cy="406" r="20" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3"/><path class="ck" d="M620,406 L627,413 L640,398" style="stroke-width:4"/></g>
+            <g id="g8f0" data-fact="F121"><path d="M610,464 Q610,460 614,460 H626 L632,466 H644 Q648,466 648,470 V488 Q648,492 644,492 H614 Q610,492 610,488 Z" style="fill:var(--s-raised);stroke:var(--s-key);stroke-width:3;stroke-linejoin:round"/><text class="l28 mono" x="664" y="487" style="font-weight:600">.claude/agents/</text></g>
+            <g id="g8f1"><path class="ln" d="M629,496 V522 H672" style="stroke-width:2"/><path d="M680,508 H696 L704,516 V536 H680 Z" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3;stroke-linejoin:round"/><text class="l28 mono" x="716" y="531">자료조사.md</text></g>
+            <g id="g8f2"><path class="ln" d="M629,522 V564 H672" style="stroke-width:2"/><path d="M680,550 H696 L704,558 V578 H680 Z" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3;stroke-linejoin:round"/><text class="l28 mono" x="716" y="573">슬라이드.md</text></g>
+            <g id="g8f3"><path class="ln" d="M629,564 V606 H672" style="stroke-width:2"/><path d="M680,592 H696 L704,600 V620 H680 Z" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3;stroke-linejoin:round"/><text class="l28 mono" x="716" y="615">리뷰.md</text></g>
+            <g id="g8f4"><path class="ln" d="M629,606 V648 H672" style="stroke-width:2"/><path d="M680,634 H696 L704,642 V662 H680 Z" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3;stroke-linejoin:round"/><text class="l28 mono" x="716" y="657">디자인QA.md</text></g>
+            <g id="g8f5" data-fact="F121"><path d="M610,684 Q610,680 614,680 H626 L632,686 H644 Q648,686 648,690 V708 Q648,712 644,712 H614 Q610,712 610,708 Z" style="fill:var(--s-raised);stroke:var(--s-key);stroke-width:3;stroke-linejoin:round"/><text class="l28 mono" x="664" y="707" style="font-weight:600">.claude/skills/</text><rect x="932" y="682" width="30" height="22" rx="4" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3"/><rect x="942" y="690" width="30" height="22" rx="4" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3"/></g>
+            <g id="g8f6" data-fact="F121"><path d="M616,728 H632 L640,736 V756 H616 Z" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3;stroke-linejoin:round"/><text class="l28 mono" x="664" y="751" style="font-weight:600">CLAUDE.md</text></g>
+          </svg>
+        </section>
+
+        <!-- ===== S08a SHARED: 슬라이드 작성과 디자인 QA가 같은 DESIGN.md의 같은 지점에 선을 대고, QA가 기준과 다른 제목 색을 짚어 고친다 → (14차) 아래 왼쪽에 작은 CLAUDE.md(호출 조건 · 변경 이력)가 오른쪽 위 모서리에 걸친 꼬리표 '새 세션마다 읽힘'과 함께 선다(위 줄은 이때부터 불투명도 0.7) → '호출 조건' 줄 끝에서 오른쪽으로 선과 점 하나 → 점이 닿는 순간 큰 오케스트레이터 「공통 규칙」이 서고 칩 둘이 채움으로 켜짐 ===== -->
+        <section class="scene" id="s08a" data-scene="S08a" data-duration="9.5" data-label="SHARED" data-title="같은 기준 파일을 함께 보며 일해요" data-tracker="기록" aria-label="장면 10 같은 기준 파일을 함께 보며 일해요">
+          <header class="hud2" id="kah">
+            <p class="hud-tag">SHARED</p>
+            <h3 class="hud-h" data-fact="F650">같은 기준 파일을 함께 보며 일해요</h3>
+            <p class="hud-p" data-fact="F650">슬라이드 작성과 디자인 QA가 같은 DESIGN.md를 봐요.</p>
+          </header>
+          <ol class="narr" hidden>
+            <li data-at="0" data-fact="F650">디자인 기준 파일을 만들면, 작성하는 쪽과 점검하는 쪽이 같은 파일을 봅니다.</li>
+            <li data-at="4.2" data-fact="F655">CLAUDE.md에는 호출 조건과 변경 이력만 둡니다.</li>
+          </ol>
+          <span class="a bdg ex" id="kax" style="right:64px;top:36px">예시</span>
+          <svg class="sv" viewBox="0 0 1600 900" aria-hidden="true">
+            <!-- 1박자: 가운데 위 DESIGN.md(색 견본 셋 · 글꼴 줄 · 간격 줄, 글자 없음) + 아래 가운데 연결점. 9차 ⑤: 위 줄을 20 올리고 슬라이드 카드를 80 높이로 줄여 아래 줄(y 612)과 64 이상 띄움 -->
+            <g id="kadm" data-fact="F650 F181"><path class="kadoc" d="M620,256 H932 L980,304 V472 H620 Z"/><path class="ln" d="M932,256 V304 H980"/><text class="l36 mono" x="648" y="302">DESIGN.md</text><rect x="648" y="326" width="52" height="52" rx="10" style="fill:var(--s-key)"/><rect x="716" y="326" width="52" height="52" rx="10" style="fill:var(--s-accent)"/><rect x="784" y="326" width="52" height="52" rx="10" style="fill:var(--s-bg);stroke:var(--s-line);stroke-width:2"/><rect x="648" y="396" width="200" height="14" rx="7" style="fill:var(--s-key)"/><rect class="kadl" x="648" y="420" width="140" height="10" rx="5"/><path class="ln" d="M648,452 H948 M648,442 V462 M748,442 V462 M848,442 V462 M948,442 V462" style="stroke:var(--s-key)"/><circle cx="800" cy="480" r="9" style="fill:var(--s-key)"/></g>
+            <!-- 두 에이전트의 선: 같은 굵기로 내려와 DESIGN.md 아래 같은 연결점에 닿는다 -->
+            <path id="kal0" class="ln" d="M420,364 H584 Q600,364 600,380 V504 Q600,520 616,520 H800 V489" style="stroke:var(--s-key);stroke-width:4"/>
+            <path id="kal1" class="ln" d="M1180,364 H1016 Q1000,364 1000,380 V504 Q1000,520 984,520 H800 V489" style="stroke:var(--s-key);stroke-width:4"/>
+            <!-- 왼쪽 로봇 '슬라이드 작성' + 그 값으로 만든 작은 슬라이드 카드(제목 글자만 처음에 기준과 다른 색). 9차: 카드를 로봇 상자 왼쪽 끝(x 140)에 맞춰 칩·✓ 자리와 겹치지 않게 -->
+            <g id="kaa0" data-fact="F650"><rect class="agbox" x="140" y="280" width="280" height="168" rx="24"/><g class="agf" transform="translate(280 342) scale(1.3)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><text class="l36" x="280" y="426" text-anchor="middle">슬라이드 작성</text></g>
+            <g id="kacd"><rect x="140" y="464" width="220" height="80" rx="10" style="fill:var(--s-raised);stroke:var(--s-line);stroke-width:3"/><rect id="katt" x="160" y="478" width="120" height="14" rx="7" style="fill:var(--s-line)"/><rect x="160" y="502" width="72" height="30" rx="6" style="fill:var(--s-accent)"/><rect class="kadl" x="246" y="506" width="96" height="8" rx="4"/><rect class="kadl" x="246" y="522" width="70" height="8" rx="4"/></g>
+            <!-- 오른쪽 로봇 '디자인 QA' -->
+            <g id="kaa1" data-fact="F650 F651"><rect class="agbox" x="1180" y="280" width="280" height="168" rx="24"/><g class="agf" transform="translate(1320 342) scale(1.3)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><text class="l36" x="1320" y="426" text-anchor="middle">디자인 QA</text></g>
+            <!-- 2박자: 돋보기가 제목 글자를 짚고 칩 '기준과 다름'(danger)이 그 옆에 붙었다가, 제목이 견본 색으로 바뀌며 ✓(accent) -->
+            <g id="kamg" class="ic sky"><circle cx="292" cy="485" r="24"/><path d="M309,502 L330,523" style="stroke-width:7"/></g>
+            <g id="kang" data-fact="F651 F652"><rect x="366" y="464" width="180" height="44" rx="22" style="fill:var(--s-bg);stroke:var(--s-danger);stroke-width:3"/><text class="l28 dg" x="456" y="496" text-anchor="middle" style="font-weight:700">기준과 다름</text></g>
+            <!-- 10차: ✓는 칩이 물러난 뒤 슬라이드 카드 오른쪽 위 모서리(360,464)에 걸쳐 둔다(로봇 상자 아래 끝 y 448과 떨어지게 원 위 끝 y 452) -->
+            <g id="kaok"><circle cx="360" cy="472" r="18" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3"/><path class="ck" d="M351,472 L357,478 L369,466" style="stroke-width:5"/></g>
+            <!-- 3박자(14차, 15차 크기 대비): 아래 왼쪽 작은 CLAUDE.md(x 120~500, y 636~776, 380×140 — 줄 둘 '호출 조건'·'변경 이력'뿐. 접힌 귀퉁이 자리에 꼬리표 '새 세션마다 읽힘'(x 374~626, y 614~658)이 오른쪽 위 모서리에서 위 변 밖으로 걸쳐 카드와 함께 섬, 'CLAUDE.md' 글자 끝 약 342 · 꼬리표 374와 32)
+                 · 아래 오른쪽 큰 오케스트레이터 「공통 규칙」(x 720~1480, y 608~776, 760×168, 점이 닿을 때 섬). 작은 카드와 220, 꼬리표와 94. 「공통 규칙」은 DESIGN.md·에이전트와 선으로 잇지 않는다. 위 줄 아래 끝(y 544)과 꼬리표 70 · 큰 카드 64, 진행 표시줄(y 800~)과 24 -->
+            <g id="kacl" data-fact="F655"><path class="kadoc" d="M120,636 H500 V776 H120 Z"/><text class="l36 mono" x="148" y="682">CLAUDE.md</text><g data-fact="F655"><circle cx="158" cy="710" r="7" style="fill:var(--s-key)"/><text class="l28 sc" x="176" y="720" style="font-weight:700">호출 조건</text></g><circle cx="158" cy="744" r="7" style="fill:var(--s-line)"/><text class="l28 mu" x="176" y="754">변경 이력</text></g>
+            <g id="kaw1" data-fact="F654"><rect class="kapl" x="374" y="614" width="252" height="44" rx="22"/><text class="l28 sc" x="500" y="646" text-anchor="middle" style="font-weight:700">새 세션마다 읽힘</text></g>
+            <!-- 10차: 칩 폭은 글자에 맞춘다(타임라인에서 글자 폭 + 좌우 20씩으로 다시 잼, 아래 값은 기본값) -->
+            <g id="kaco" data-fact="F660 F580"><path class="kadoc" d="M720,608 H1432 L1480,656 V776 H720 Z"/><path class="ln" d="M1432,608 V656 H1480"/><text class="l36" x="752" y="665">오케스트레이터 「공통 규칙」</text><g data-fact="F660 F623 F640"><rect id="kac0" class="kach" x="752" y="696" width="252" height="48" rx="14"/><text id="kat0" class="l28" x="878" y="730" text-anchor="middle">토큰 사용량 상한</text></g><g data-fact="F660 F623"><rect id="kac1" class="kach" x="1020" y="696" width="212" height="48" rx="14"/><text id="kat1" class="l28" x="1126" y="730" text-anchor="middle">도구 호출 상한</text></g></g>
+            <!-- 14차: '호출 조건' 줄 끝 점(316,710)에서 오른쪽으로 선 하나 → 화살촉 끝(722)이 「공통 규칙」 왼쪽 변(720)에 닿는다. 점은 이 방향으로만, '변경 이력'에는 잇지 않음 -->
+            <circle id="kan" cx="316" cy="710" r="6" style="fill:var(--s-key)"/>
+            <path id="kacn" class="ln" d="M316,710 H706" style="stroke:var(--s-key)"/>
+            <path id="kaar" d="M704,700 L722,710 L704,720 Z" style="fill:var(--s-key)"/>
+          </svg>
+        </section>
+
+        <!-- ===== S10 RUN: 에이전트 노드 넷이 _workspace 폴더를 거쳐 문서 패킷을 주고받고, 리뷰 지적이면 작성으로 되돌아갔다 통과, 끝에 표지만 다시 ===== -->
+        <section class="scene" id="s10" data-scene="S10" data-duration="20.5" data-label="RUN" data-title="이제 한마디면, 팀이 움직입니다" aria-label="장면 11 이제 한마디면, 팀이 움직입니다" data-tracker="실행">
+          <header class="hud2" id="g10h">
+            <p class="hud-tag">RUN</p>
+            <h3 class="hud-h" data-fact="F460 F421">이제 한마디면, 팀이 움직입니다</h3>
+            <p class="hud-p" data-fact="F460">에이전트들이 파일로 결과를 주고받으며 한 팀처럼 일해요.</p>
+          </header>
+          <ol class="narr" hidden>
+            <li data-at="0" data-fact="F460 F421">팀은 _workspace 폴더에 결과를 남기며 서로 주고받습니다.</li>
+            <li data-at="14" data-fact="F424 F470">전부 다시 돌릴 필요 없이, 고칠 단계나 에이전트만 다시 실행합니다.</li>
+          </ol>
+          <span class="a bdg ex" id="g10x" style="right:64px;top:36px">예시</span>
+          <svg class="sv" viewBox="0 0 1600 900" aria-hidden="true">
+            <g id="g10in"><path d="M116,270 H374 Q410,270 410,306 Q410,342 374,342 H150 L120,366 L128,342 H116 Q80,342 80,306 Q80,270 116,270 Z" class="bx" style="stroke:var(--s-key)"/><text class="l36" x="245" y="319" text-anchor="middle">PPT 만들어줘</text></g>
+            <g id="g10tail" data-fact="F424 F470"><path d="M116,270 H374 Q410,270 410,306 Q410,342 374,342 H150 L120,366 L128,342 H116 Q80,342 80,306 Q80,270 116,270 Z" class="bx" style="stroke:var(--s-key)"/><text class="l36" x="245" y="319" text-anchor="middle">표지만 다시 해줘</text></g>
+            <g id="g10or"><rect id="g10orr" x="600" y="262" width="400" height="88" rx="22" style="fill:var(--s-raised);stroke:var(--s-key);stroke-width:5"/><g class="ic sky" style="stroke-width:5"><path d="M646,328 L684,288"/><circle cx="642" cy="332" r="6"/></g><text class="l36" x="704" y="319">오케스트레이터</text></g>
+            <defs><clipPath id="g10clip"><rect x="1218" y="281" width="80" height="50" rx="6"/></clipPath></defs>
+            <!-- 10차: 표지 썸네일은 틀(clip) 안에서 옛 표지(남색 띠 + 두 줄)가 위로 밀려 나가고 새 표지(파랑 띠 + 굵은 한 줄)가 아래에서 들어온다. 차트·그림 썸네일은 그대로 -->
+            <g id="g10pc"><rect x="1176" y="262" width="344" height="88" rx="16" style="fill:var(--s-raised);stroke:var(--s-accent);stroke-width:3"/><g clip-path="url(#g10clip)"><g id="g10cv1"><rect x="1218" y="281" width="80" height="50" rx="6" style="fill:var(--s-key)"/><rect x="1228" y="294" width="52" height="9" rx="3" style="fill:var(--s-on-key)"/><rect x="1228" y="310" width="34" height="7" rx="3" style="fill:var(--s-on-key)"/></g><g id="g10cv2"><rect x="1218" y="281" width="80" height="50" rx="6" style="fill:var(--s-accent)"/><rect x="1230" y="300" width="56" height="12" rx="4" style="fill:var(--s-on-key)"/></g></g><rect id="g10cvb" x="1218" y="281" width="80" height="50" rx="6" style="fill:none;stroke:var(--s-line);stroke-width:2"/><rect x="1308" y="281" width="80" height="50" rx="6" style="fill:var(--s-bg);stroke:var(--s-line);stroke-width:2"/><path class="ic" d="M1324,321 H1372 M1332,321 V307 M1346,321 V295 M1360,321 V302" style="stroke-width:4"/><rect x="1398" y="281" width="80" height="50" rx="6" style="fill:var(--s-bg);stroke:var(--s-line);stroke-width:2"/><path class="ic" d="M1410,322 L1426,302 L1438,314 L1446,306 L1466,322 Z" style="stroke-width:3"/><circle class="ic" cx="1456" cy="294" r="5" style="stroke-width:3"/></g>
+            <!-- 8차: 완성 PPT 카드 바로 위 '결과물 완성 ✓'(예시 진행 상태 표시, ✓는 accent) -->
+            <g id="g10done"><text class="l36" x="1440" y="246" text-anchor="end">결과물 완성</text><path class="ck" d="M1454,232 L1464,242 L1482,222" style="stroke-width:5"/></g>
+            <!-- 10차: 꼬리 끝에 같은 자리·같은 크기의 짝 '결과물 수정 ✓' -->
+            <g id="g10fix"><text class="l36" x="1440" y="246" text-anchor="end">결과물 수정</text><path class="ck" d="M1454,232 L1464,242 L1482,222" style="stroke-width:5"/></g>
+            <g id="g10bus"><path id="g10s0" class="ln dl" d="M800,350 V392 H236 V410" style="stroke-width:2"/><path id="g10s1" class="ln dl" d="M612,392 V410" style="stroke-width:2"/><path id="g10s2" class="ln dl" d="M800,392 H988 V410" style="stroke-width:2"/><path id="g10s3" class="ln dl" d="M988,392 H1364 V410" style="stroke-width:2"/></g>
+            <g id="g10ls" data-fact="F421"><path id="g10l0" class="ln dl" d="M236,608 L640,692" style="stroke-width:2"/><path id="g10l1" class="ln dl" d="M612,608 L760,692" style="stroke-width:2"/><path id="g10l2" class="ln dl" d="M988,608 L840,692" style="stroke-width:2"/><path id="g10l3" class="ln dl" d="M1364,608 L960,692" style="stroke-width:2"/></g>
+            <g id="g10fo" data-fact="F460"><path id="g10fp" d="M560,692 Q560,680 572,680 H700 L718,696 H1028 Q1040,696 1040,708 V756 Q1040,768 1028,768 H572 Q560,768 560,756 Z" class="bx" style="stroke-width:4"/><text class="l36 mono" x="800" y="744" text-anchor="middle">_workspace</text></g>
+            <!-- 11차: 폴더 라벨 오른쪽 옆 설명 한 줄(30px, primary 남색). 점선 l3은 x 1068에서 y 약 670이라 글자(약 718~750)와 겹치지 않음 -->
+            <text id="g10fd" class="l30 sc" x="1068" y="744" data-fact="F460 F421">중간 결과를 모아 두는 작업 폴더</text>
+            <!-- 에이전트 노드 넷(S07과 같은 상자 모양, 로봇 얼굴 + 역할 이름만) -->
+            <g id="g10n0"><rect id="g10nr0" class="agbox" x="64" y="412" width="344" height="196" rx="24"/><g class="agf" transform="translate(236 484) scale(1.3)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><text class="l36" x="236" y="580" text-anchor="middle">자료 조사 담당</text></g>
+            <g id="g10n1"><rect id="g10nr1" class="agbox" x="440" y="412" width="344" height="196" rx="24"/><g class="agf" transform="translate(612 484) scale(1.3)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><text class="l36" x="612" y="580" text-anchor="middle">슬라이드 작성 담당</text></g>
+            <g id="g10n2"><rect id="g10nr2" class="agbox" x="816" y="412" width="344" height="196" rx="24"/><g class="agf" transform="translate(988 484) scale(1.3)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><text class="l36" x="988" y="580" text-anchor="middle">리뷰 담당</text></g>
+            <g id="g10n3"><rect id="g10nr3" class="agbox" x="1192" y="412" width="344" height="196" rx="24"/><g class="agf" transform="translate(1364 484) scale(1.3)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><text class="l36" x="1364" y="580" text-anchor="middle">디자인 QA 담당</text></g>
+            <g id="g10ar"><path class="ln" d="M412,510 H432" marker-end="url(#ahm)"/><path class="ln" d="M788,510 H808" marker-end="url(#ahm)"/><path class="ln" d="M1164,510 H1184" marker-end="url(#ahm)"/></g>
+            <circle id="g10r0" cx="236" cy="484" r="52" style="fill:none;stroke:var(--s-accent);stroke-width:5;stroke-linecap:round;stroke-dasharray:90 240"/>
+            <circle id="g10r1" cx="612" cy="484" r="52" style="fill:none;stroke:var(--s-accent);stroke-width:5;stroke-linecap:round;stroke-dasharray:90 240"/>
+            <circle id="g10r2" cx="988" cy="484" r="52" style="fill:none;stroke:var(--s-accent);stroke-width:5;stroke-linecap:round;stroke-dasharray:90 240"/>
+            <circle id="g10r3" cx="1364" cy="484" r="52" style="fill:none;stroke:var(--s-accent);stroke-width:5;stroke-linecap:round;stroke-dasharray:90 240"/>
+            <g id="g10bb" data-fact="F463"><rect class="dgs" x="1060" y="436" width="56" height="48" rx="14" style="fill:var(--s-bg);stroke:var(--s-danger);stroke-width:3"/><text class="l36 dg" x="1088" y="473" text-anchor="middle" style="fill:var(--s-danger)">!</text></g>
+            <g id="g10ok"><circle cx="1088" cy="460" r="22" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3"/><path class="ck" d="M1077,460 L1085,468 L1100,452" style="stroke-width:5"/></g>
+            <g id="g10pk"><path d="M-14,-18 H6 L14,-10 V18 H-14 Z" style="fill:var(--s-accent)"/></g>
+          </svg>
+        </section>
+
+        <!-- ===== S10a TOKENS(10차): 위 한 줄 '통째로 읽기 vs 자기 몫만 읽기' · 근거 시트 145KB를 통째로 받은 담당 넷 앞에 높은 더미 → 목차 + 조각 넷으로 나뉘어 자기 몫만 받자 점선 윤곽(통째로 읽을 때) 안에 낮은 더미(자기 몫만 읽을 때) → 아래 띠(토큰을 낭비하는 에이전트는 지양해요, 11차 사용자 결정) ===== -->
+        <section class="scene" id="s10a" data-scene="S10a" data-duration="10" data-label="TOKENS" data-title="토큰 아끼는 하네스, 만들 때부터 가볍게" aria-label="장면 12 토큰 아끼는 하네스, 만들 때부터 가볍게" data-tracker="토큰">
+          <header class="hud2" id="tah">
+            <p class="hud-tag">TOKENS</p>
+            <h3 class="hud-h" data-fact="F478 F481">토큰 아끼는 하네스, 만들 때부터 가볍게</h3>
+            <p class="hud-p" data-fact="F478 F479 F481">받은 파일이 클수록 읽는 양이 늘어요. 그래서 큰 파일은 나눠, 다음 단계가 쓸 것만 넘겨요.</p>
+          </header>
+          <ol class="narr" hidden>
+            <li data-at="0" data-fact="F478">인계 파일이 크면 실행할 때마다 토큰도 그만큼 들죠?</li>
+            <li data-at="4.2" data-fact="F481 F564">큰 파일은 목차와 조각으로 나눠 에이전트가 자기 몫만 읽게 합니다.</li>
+          </ol>
+          <span class="a bdg ex" id="tax" style="right:64px;top:36px">예시</span>
+          <svg class="sv" viewBox="0 0 1600 900" aria-hidden="true">
+            <!-- 위 한 줄: 짧은 비교 라벨. 뒤쪽은 남색 + accent 밑줄(무대 글자에 accent는 72px 이상만이라 밑줄로 강조, 밑줄 자리·길이는 타임라인에서 글자에 맞춤) -->
+            <g id="tacz" data-fact="F478 F481"><text class="l36" x="800" y="282" text-anchor="middle">통째로 읽기 <tspan style="fill:var(--s-muted);font-weight:400">vs</tspan> <tspan id="tac2" style="fill:var(--s-key)">자기 몫만 읽기</tspan></text><rect id="tacu" x="805" y="294" width="234" height="6" rx="3" style="fill:var(--s-accent)"/></g>
+            <!-- 1박자: 왼쪽 큰 문서 '근거 시트 145KB' → 위쪽 선으로 담당 넷에 통째로 -->
+            <g id="tadoc" data-fact="F372 F478"><path d="M80,350 H390 L430,390 V470 H80 Z" class="bx" style="stroke:var(--s-key)"/><path d="M390,350 V390 H430" class="ln"/><text class="l36" x="104" y="404">근거 시트 145KB</text><rect class="tadl" x="104" y="428" width="250" height="10" rx="5"/><rect class="tadl" x="104" y="448" width="190" height="10" rx="5"/></g>
+            <path id="tab1" class="ln" d="M430,410 H470 V330 H1360 M700,330 V350 M920,330 V350 M1140,330 V350 M1360,330 V350"/>
+            <!-- 2박자: 같은 자리에 목차 한 장 + 작은 조각 넷(아래 보조 글자) → 조각 한 장씩 각 담당으로 -->
+            <g id="tatoc" data-fact="F481"><path d="M80,350 H190 L222,382 V454 H80 Z" class="bx" style="stroke:var(--s-key)"/><path d="M190,350 V382 H222" class="ln"/><text class="l36" x="104" y="410">목차</text><rect class="tadl" x="104" y="428" width="86" height="8" rx="4"/></g>
+            <g id="tapc"><path d="M246,350 H270 L282,362 V406 H246 Z" class="bx"/><path d="M270,350 V362 H282" class="ln"/><path d="M294,350 H318 L330,362 V406 H294 Z" class="bx"/><path d="M318,350 V362 H330" class="ln"/><path d="M342,350 H366 L378,362 V406 H342 Z" class="bx"/><path d="M366,350 V362 H378" class="ln"/><path d="M390,350 H414 L426,362 V406 H390 Z" class="bx"/><path d="M414,350 V362 H426" class="ln"/></g>
+            <text id="talb" class="l28 mu" x="246" y="446" data-fact="F481 F480 F373">하나에 약 20KB 안쪽</text>
+            <path id="tab2" class="ln dl" d="M426,378 H470 V330 H1360 M700,330 V350 M920,330 V350 M1140,330 V350 M1360,330 V350" style="stroke:var(--s-accent)"/>
+            <!-- S10 끝의 담당 넷(같은 상자·로봇 얼굴, 같은 순서). 이름 대신 줄 아래 한 줄로 같은 팀임을 밝힌다 -->
+            <g id="taa0"><rect class="agbox" x="610" y="350" width="180" height="104" rx="24"/><g class="agf" transform="translate(700 404) scale(1.15)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g></g>
+            <g id="taa1"><rect class="agbox" x="830" y="350" width="180" height="104" rx="24"/><g class="agf" transform="translate(920 404) scale(1.15)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g></g>
+            <g id="taa2"><rect class="agbox" x="1050" y="350" width="180" height="104" rx="24"/><g class="agf" transform="translate(1140 404) scale(1.15)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g></g>
+            <g id="taa3"><rect class="agbox" x="1270" y="350" width="180" height="104" rx="24"/><g class="agf" transform="translate(1360 404) scale(1.15)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g></g>
+            <!-- 담당 앞 종이 더미: 높은 더미(통째로) → 점선 윤곽으로 남고 그 안에 낮은 더미(자기 몫만). 종이 장은 타임라인에서 그린다 -->
+            <rect id="taol0" class="taol" x="636" y="512" width="128" height="117" rx="8"/><rect id="taol1" class="taol" x="856" y="512" width="128" height="117" rx="8"/><rect id="taol2" class="taol" x="1076" y="512" width="128" height="117" rx="8"/><rect id="taol3" class="taol" x="1296" y="512" width="128" height="117" rx="8"/>
+            <g id="tahi0"></g><g id="tahi1"></g><g id="tahi2"></g><g id="tahi3"></g>
+            <g id="talo0"></g><g id="talo1"></g><g id="talo2"></g><g id="talo3"></g>
+            <!-- 더미 왼쪽 이름: 윤곽 위 높이에 '통째로 읽을 때', 낮은 더미 높이에 '자기 몫만 읽을 때' -->
+            <g id="tatn" data-fact="F478"><path class="ln dl" d="M600,512 H630"/><text class="l28" x="590" y="522" text-anchor="end" style="font-weight:700">통째로 읽을 때</text></g>
+            <g id="talw" data-fact="F481 F564"><rect class="tatg" x="352" y="570" width="244" height="44" rx="22"/><text class="l28 sc" x="474" y="602" text-anchor="middle" style="font-weight:700">자기 몫만 읽을 때</text></g>
+            <!-- 3박자: 맨 아래 가로 띠(문서 아이콘 + ✕ + 한 줄). 더미 윤곽 아래 끝(629)과 띠 위 끝(696) 사이 67px -->
+            <g id="taband" data-fact="F575 F567 F478"><rect x="412" y="696" width="776" height="84" rx="16" class="bx"/><path class="ic" d="M464,716 H486 L498,728 V762 H464 Z" style="stroke-width:4"/><text class="l36" x="560" y="751">토큰을 낭비하는 에이전트는 지양해요</text></g>
+            <path id="tabx" class="ic" d="M512,727 L536,751 M536,727 L512,751" style="stroke-width:5"/>
+          </svg>
+        </section>
+
+        <!-- ===== S10b SESSION(10차): 위쪽 줄 '대화가 길어지면 토큰도 훨씬 더 많이 소모돼요' + 지금 세션 창(대화 막대 셋이 쌓이는 만큼 '컨텍스트' 게이지가 높아짐) → 제안 말풍선 '새 세션에서 이어 할까요?' ✓ → '기존 작업 내용.md'가 새 세션 창으로, 새 게이지는 낮게 다시 시작 · 입력 '… 대로 해줘' · 칩 '안정적인 작업 재개'(12차) ===== -->
+        <section class="scene" id="s10b" data-scene="S10b" data-duration="9.75" data-label="SESSION" data-title="컨텍스트를 관리해, 토큰을 아껴요" aria-label="장면 13 컨텍스트를 관리해, 토큰을 아껴요" data-tracker="세션">
+          <header class="hud2" id="nbh">
+            <p class="hud-tag">SESSION</p>
+            <h3 class="hud-h" data-fact="F557 F574 F558 F599">컨텍스트를 관리해, 토큰을 아껴요</h3>
+            <p class="hud-p" data-fact="F558 F589 F599">작업 내용을 기록해 새 세션에서도 빠뜨리지 않고 이어 가요.</p>
+          </header>
+          <ol class="narr" hidden>
+            <li data-at="0" data-fact="F557 F558 F590">컨텍스트가 길어져 토큰이 쌓이면, 새 세션에서 이어 할지 제안합니다.</li>
+            <li data-at="4.8" data-fact="F558 F589 F599">할 일과 결정을 md 한 장에 적어 새 세션에서 안정적으로 이어 갑니다.</li>
+          </ol>
+          <span class="a bdg ex" id="nbx" style="right:64px;top:36px">예시</span>
+          <svg class="sv" viewBox="0 0 1600 900" aria-hidden="true">
+            <!-- 위쪽 줄(주 메시지): 무대에서 가장 먼저 읽히는 글. 12차: 문서가 새 세션 창에 닿으면(5.4) 같은 자리에서 #nbtop2로 바뀐다(완성 화면에는 #nbtop2만) -->
+            <text id="nbtop" class="l40 sc" x="800" y="290" text-anchor="middle" data-fact="F557">대화가 길어지면 토큰도 훨씬 더 많이 소모돼요</text>
+            <text id="nbtop2" class="l40 sc" x="800" y="290" text-anchor="middle" data-fact="F558 F574">대화가 길어지면 새 세션을 권해 토큰 절약을 도와드려요</text>
+            <!-- 1박자(쌓임): 왼쪽 창 '지금 세션' + 세로 게이지 '컨텍스트'(숫자·눈금 없음) -->
+            <g id="nbw0">
+              <rect class="nbwin" x="80" y="320" width="620" height="460" rx="24"/><path class="ln" d="M80,380 H700"/><circle class="nbdot" cx="112" cy="350" r="7"/><circle class="nbdot" cx="136" cy="350" r="7"/><circle class="nbdot" cx="160" cy="350" r="7"/>
+              <text class="l36" x="188" y="363">지금 세션</text>
+              <rect class="nbgg" x="108" y="404" width="40" height="352" rx="10"/><rect id="nbg0" class="nbgv" x="113" y="409" width="30" height="342" rx="6"/>
+              <text class="l36" x="168" y="440" data-fact="F557">컨텍스트</text>
+            </g>
+            <!-- 대화 막대 셋(짧은 글, 좌우 번갈아, 아래부터 위로 쌓임) -->
+            <g id="nbm0"><rect class="nbm" x="196" y="700" width="244" height="48" rx="24"/><text class="l28" x="318" y="734" text-anchor="middle">자료 조사 결과</text></g>
+            <g id="nbm1"><rect class="nbm r" x="436" y="640" width="240" height="48" rx="24"/><text class="l28" x="556" y="674" text-anchor="middle">슬라이드 초안</text></g>
+            <g id="nbm2"><rect class="nbm" x="196" y="580" width="184" height="48" rx="24"/><text class="l28" x="288" y="614" text-anchor="middle">리뷰 지적</text></g>
+            <!-- 2박자(먼저 제안): 게이지가 높을 때 창 위로 제안 말풍선(accent 테두리) + ✓ 도장 -->
+            <g id="nbpr" data-fact="F558 F590"><path d="M224,456 H652 Q676,456 676,480 V508 Q676,532 652,532 H300 L268,556 L272,532 H224 Q200,532 200,508 V480 Q200,456 224,456 Z" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3"/><text class="l36" x="438" y="507" text-anchor="middle">새 세션에서 이어 할까요?</text></g>
+            <g id="nbok"><circle cx="676" cy="452" r="24" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:4"/><path class="ck" d="M665,452 L673,460 L688,444" style="stroke-width:5"/></g>
+            <!-- 3박자(옮기기): 오른쪽 새 창 '새 세션' + 낮게 다시 시작하는 게이지 + 입력창 -->
+            <g id="nbw1" data-fact="F574 F558">
+              <rect class="nbwin" x="900" y="320" width="620" height="460" rx="24"/><path class="ln" d="M900,380 H1520"/><circle class="nbdot" cx="932" cy="350" r="7"/><circle class="nbdot" cx="956" cy="350" r="7"/><circle class="nbdot" cx="980" cy="350" r="7"/>
+              <text class="l36" x="1008" y="363">새 세션</text>
+              <rect class="nbgg" x="928" y="404" width="40" height="352" rx="10"/><rect id="nbg1" class="nbgv" x="933" y="409" width="30" height="342" rx="6"/>
+            </g>
+            <g id="nbin" data-fact="F596 F558"><rect x="996" y="700" width="500" height="56" rx="28" style="fill:var(--s-bg);stroke:var(--s-key);stroke-width:3"/><text class="l30" x="1020" y="738"><tspan class="mono">기존 작업 내용.md</tspan> 대로 해줘</text></g>
+            <!-- 인계 파일 한 장(S10a와 같은 문서 모양): 왼쪽 창 아래에서 올라와(x 220~660, y 588~748) 새 창(x 1000~1440, y 404~564)으로 넘어간다 -->
+            <g id="nbdoc"><path d="M220,588 H620 L660,628 V748 H220 Z" class="bx" style="stroke:var(--s-key)"/><path d="M620,588 V628 H660" class="ln"/><text class="l36 mono" x="244" y="640" data-fact="F558 F599">기존 작업 내용.md</text><text class="l28" x="244" y="690" style="font-weight:700" data-fact="F558">할 일 · 정한 결정</text></g>
+            <g id="nbkb" data-fact="F599 F600 F558"><rect x="462" y="712" width="182" height="44" rx="22" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:2"/><text class="l28" x="553" y="744" text-anchor="middle" style="font-weight:700">보통 1~3KB</text></g>
+            <!-- 부가 메시지: 문서 옆 작은 칩(28px, 회색 테두리) -->
+            <g id="nbsafe" data-fact="F599 F589"><rect x="1000" y="604" width="284" height="44" rx="22" style="fill:var(--s-bg);stroke:var(--s-line);stroke-width:2"/><text class="l28 mu" x="1142" y="636" text-anchor="middle" style="font-weight:700">안정적인 작업 재개</text></g>
+          </svg>
+        </section>
+
+        <!-- ===== S11 EVOLVE(5차 자동 개선): 점이 고리를 돌며 피드백('좀 느린데?') → 제안 → 승인 문 → 반영으로 하네스를 고치고, 고친 모양이 harnesskit.lock에 남는다 ===== -->
+        <section class="scene" id="s11" data-scene="S11" data-duration="14.5" data-label="EVOLVE" data-title="하네스 자동 개선, 먼저 알리고 제안해요" aria-label="장면 14 하네스 자동 개선, 먼저 알리고 제안해요" data-tracker="개선">
+          <header class="hud2" id="g11h">
+            <p class="hud-tag">EVOLVE</p>
+            <h3 class="hud-h" data-fact="F137 F391 F148">하네스 자동 개선, 먼저 알리고 제안해요</h3>
+            <p class="hud-p" data-fact="F137 F391">실행할 때마다 점검해 회고할 때를 알리고, 바꿀 내용은 승인받은 뒤 반영해요.</p>
+          </header>
+          <ol class="narr" hidden>
+            <li data-at="0" data-fact="F389">쓰다 보니 하네스가 좀 느리다고 느끼셨나요?</li>
+            <li data-at="6" data-fact="F387 F380 F390">피드백을 자동으로 감지하고 하네스를 개선합니다.</li>
+          </ol>
+          <svg class="sv" viewBox="0 0 1600 900" aria-hidden="true">
+            <g transform="translate(40 0)">
+            <!-- 고리: 화살촉 셋 + 아래쪽(제안 → 반영 사이)에 승인 문(처음부터 ✓ 자리 빈 원) -->
+            <g id="g11ring"><circle cx="560" cy="520" r="250" class="ln"/><path class="ah" d="M-10,-10 L10,0 L-10,10 Z" transform="translate(560 270) rotate(0)"/><path class="ah" d="M-10,-10 L10,0 L-10,10 Z" transform="translate(795 434) rotate(70)"/><path class="ah" d="M-10,-10 L10,0 L-10,10 Z" transform="translate(310 520) rotate(270)"/><circle id="g11gt" cx="560" cy="770" r="24" style="fill:var(--s-bg);stroke:var(--s-line);stroke-width:3"/></g>
+            <g id="g11gk" data-fact="F391"><circle cx="560" cy="770" r="24" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3"/><path class="ck" d="M549,770 L557,778 L572,762" style="stroke-width:5"/></g>
+            <path id="g11a1" class="ln dl" d="M656,520 H1164" style="stroke:var(--s-accent)" marker-end="url(#ahs)"/>
+            <!-- 칸 뒤 불투명 받침: 흐린 칸 안으로 고리 선이 비치지 않게 -->
+            <rect x="283" y="299" width="200" height="88" rx="16" style="fill:var(--s-bg)"/><rect x="637" y="299" width="200" height="88" rx="16" style="fill:var(--s-bg)"/><rect x="637" y="653" width="200" height="88" rx="16" style="fill:var(--s-bg)"/><rect x="283" y="653" width="200" height="88" rx="16" style="fill:var(--s-bg)"/>
+            <g id="g11n1"><rect x="283" y="299" width="200" height="88" rx="16" class="bx"/><text class="l36" x="383" y="356" text-anchor="middle">써 보기</text></g>
+            <g id="g11n2" data-fact="F389 F159"><rect x="637" y="299" width="200" height="88" rx="16" class="bx"/><text class="l36" x="737" y="356" text-anchor="middle">피드백</text></g>
+            <g id="g11n3" data-fact="F391"><rect x="637" y="653" width="200" height="88" rx="16" class="bx"/><text class="l36" x="737" y="710" text-anchor="middle">제안</text></g>
+            <g id="g11n4" data-fact="F391"><rect x="283" y="653" width="200" height="88" rx="16" class="bx"/><text class="l36" x="383" y="710" text-anchor="middle">반영</text></g>
+            <!-- 하네스 묶음(S01과 같은 모양): 파란 테두리 + 작은 탭(글자 없음, 라벨 수) + 에이전트·스킬·작업 순서 -->
+            <g id="g11hb">
+              <rect id="g11hr" x="470" y="460" width="180" height="120" rx="16" class="hb"/>
+              <rect x="476" y="440" width="72" height="20" rx="6" style="fill:var(--s-raised);stroke:var(--s-key);stroke-width:3"/>
+              <g class="hbi"><circle cx="493" cy="528" r="8"/><circle cx="507" cy="512" r="8"/><circle cx="521" cy="528" r="8"/></g>
+              <g class="hbi"><rect x="538" y="504" width="34" height="26" rx="4"/><rect x="548" y="512" width="34" height="26" rx="4" style="fill:var(--s-bg)"/></g>
+              <g id="g11b3" class="hbi" style="stroke-width:5"><path d="M592,510 L602,520 L592,530"/><path d="M608,510 L618,520 L608,530"/><path d="M624,510 L634,520 L624,530"/></g>
+            </g>
+            </g>
+            <!-- 제안 카드 말풍선('제안' 칸 오른쪽): 글 없는 줄 둘 + 작은 '승인' 버튼.
+                 16차: 무대 아래 진행 표시줄(y 816~)에 걸리지 않게 그림 자리 안(x 912~1192, y 638~780)으로 올리고 줄임.
+                 오른쪽 끝 1192는 기록 파일(x 1220~, y ~675)과 28 떨어짐. 글은 28px/700(폭 약 214, 좌우 여백 24 이상), 아랫줄에 글 없는 줄 둘 + '승인' 버튼(x 1048~1168, y 708~756).
+                 꼬리 끝(888,697)은 '제안' 칸 오른쪽 변 가운데(877,697)를 가리키고, 말풍선이 뜬 뒤(5.1~) 점이 지나는 45°~76° 자리(빛무리 포함 x 862 이하)에 닿지 않는다 -->
+            <g id="g11bub" data-fact="F391"><path d="M936,638 H1168 Q1192,638 1192,662 V756 Q1192,780 1168,780 H936 Q912,780 912,756 V709 L888,697 L912,685 V662 Q912,638 936,638 Z" class="bx" style="fill:var(--s-bg);stroke:var(--s-accent);stroke-width:3"/><text class="l28" x="936" y="688" style="font-weight:700">이렇게 고칠까요?</text><rect x="936" y="712" width="92" height="10" rx="5" style="fill:var(--s-line)"/><rect x="936" y="736" width="64" height="10" rx="5" style="fill:var(--s-line)"/><rect id="g11bt" x="1048" y="708" width="120" height="48" rx="24" style="fill:var(--s-key)"/><text class="l28" x="1130" y="742" text-anchor="middle" style="font-weight:700;fill:var(--s-on-key)">승인</text><path id="g11bk" d="M1064,732 L1072,740 L1088,722" style="fill:none;stroke:var(--s-on-key);stroke-width:5;stroke-linecap:round;stroke-linejoin:round"/></g>
+            <!-- 사용자 말풍선 '좀 느린데?'(13차, S05a 사용자 말풍선과 같은 모양): '피드백' 칸(x 677~877, y 299~387)과 같은 높이 오른쪽, 빠진 '회고할 때' 막대 자리(본체 x 950~1174, y 305~381, 세로 가운데 343).
+                 꼬리는 본체 왼쪽 변 가운데(y 332~354)에서 왼쪽으로, 끝(920,343)이 '피드백' 칸 오른쪽 변 가운데(877,343)를 가리킨다.
+                 점이 도는 길(가장 오른쪽 점 중심 x 878, 빛무리 포함 x 900)에서 꼬리 끝까지 빛무리 바깥 여유 약 23·점선 화살표(y 520)·기록 파일(x 1220~)에 닿지 않는다 -->
+            <g id="g11say" data-fact="F389 F382"><path d="M974,305 H1150 Q1174,305 1174,329 V357 Q1174,381 1150,381 H974 Q950,381 950,357 V354 L920,343 L950,332 V329 Q950,305 974,305 Z" style="fill:var(--s-raised);stroke:var(--s-key);stroke-width:3;stroke-linejoin:round"/><text class="l36" x="1062" y="356" text-anchor="middle">좀 느린데?</text></g>
+            <!-- 기록 파일: 줄 둘 + 새 줄은 위쪽, 'harnesskit.lock'은 문서 맨 아래(복사본·점선이 글자 위를 지나지 않게).
+                 14차: 줄을 16~22 올리고(484 · 512 · 새 줄 540~554 — 복사본이 내려앉는 자리 중심 y 540과 맞음) 새 줄 바로 밑에 라벨 '하네스 개선 반영'(#g11nt, 28px/700).
+                 라벨 글자색은 primary: accent(#3175FF)는 흰 바탕 4.1:1이라 28px 글자로 쓰지 않는다(DESIGN.md Colors). 새 줄과 왼쪽 끝 x를 맞추고 함께 떠 한 덩어리로 읽힌다.
+                 실제 자리(translate 190): 문서 x 1220~1520 · y 445~675, 라벨 x 1252~약 1462 · 글자 y 약 574~600, 'harnesskit.lock' 글자 위 끝 약 629. 제안 카드(16차 x 912~1192 · y 638~780, 파일 왼쪽 밖)·점선 화살표(y 520, 문서 왼쪽 밖에서 끝남)와 떨어짐 -->
+            <g transform="translate(190 0)">
+            <g id="g11file" data-fact="F148">
+              <path d="M1030,445 H1286 L1330,489 V675 H1030 Z" class="bx"/><path d="M1286,445 V489 H1330" class="ln"/>
+              <rect x="1062" y="484" width="180" height="10" rx="5" style="fill:var(--s-line)"/><rect x="1062" y="512" width="140" height="10" rx="5" style="fill:var(--s-line)"/>
+              <text class="l28 mono" x="1180" y="650" text-anchor="middle">harnesskit.lock</text>
+            </g>
+            <rect id="g11nl" x="1062" y="540" width="200" height="14" rx="7" style="fill:var(--s-accent)"/>
+            <text id="g11nt" class="l28" x="1062" y="596" style="font-weight:700;fill:var(--s-key)" data-fact="F148">하네스 개선 반영</text>
+            </g>
+            <g transform="translate(40 0)"><rect id="g11cp" x="470" y="460" width="180" height="120" rx="16" class="ln dl" style="stroke:var(--s-accent);stroke-width:4"/></g>
+          </svg>
+        </section>
+
+        <!-- ===== S09 CODEX · LOCK: 하네스 카드 → 두 형식 폴더(mirror) → lock 문서 → 동료 PC ===== -->
+        <section class="scene" id="s09" data-scene="S12a" data-duration="8" data-label="CODEX · LOCK" data-title="Claude Code에서도, Codex에서도" data-tracker="Codex" aria-label="장면 15 Claude Code에서도, Codex에서도">
+          <header class="hud2">
+            <p class="hud-tag">CODEX · LOCK</p>
+            <h3 class="hud-h" data-fact="F123 F153">Claude Code에서도, Codex에서도</h3>
+            <p class="hud-p" data-fact="F153">동료는 'harnesskit.lock 대로 맞춰줘' 한마디면 같은 구성을 재현해요.</p>
+          </header>
+          <span class="a bdg ex" style="right:64px;top:36px">예시</span>
+          <ol class="narr" hidden>
+            <li data-at="0" data-fact="F123">Claude Code로 만든 하네스를 Codex 형식으로도 옮겨 드립니다.</li>
+            <li data-at="4.2" data-fact="F153">동료가 lock 파일대로 맞춰 달라고 하면 같은 구성을 재현합니다.</li>
+          </ol>
+          <svg class="sv" viewBox="0 0 1600 900" aria-hidden="true">
+            <!-- 1박자: 하네스 카드(에이전트 넷 = S07과 같은 로봇 얼굴) -->
+            <g id="v9h">
+              <rect x="100" y="336" width="420" height="260" rx="28" class="hb"/>
+              <text class="l40" x="310" y="420" text-anchor="middle">하네스</text>
+              <g><g class="agf" transform="translate(190 504) scale(0.85)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><g class="agf" transform="translate(270 504) scale(0.85)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><g class="agf" transform="translate(350 504) scale(0.85)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><g class="agf" transform="translate(430 504) scale(0.85)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g></g>
+            </g>
+            <!-- 2박자: 둘로 갈라진 폴더 + mirror (폴더 x 680~1060, 아래 폴더와 말풍선 사이 64px) -->
+            <g id="v9f">
+              <path class="ln" d="M524,466 C600,466 600,338 672,338" marker-end="url(#ahm)"/>
+              <path class="ln" d="M524,466 C600,466 600,554 672,554" marker-end="url(#ahm)"/>
+              <g data-fact="F124">
+                <path class="bx" d="M680,286 Q680,268 698,268 H800 L822,288 H1042 Q1060,288 1060,306 V370 Q1060,388 1042,388 H698 Q680,388 680,370 Z"/>
+                <text class="l36 mono" x="870" y="351" text-anchor="middle">.claude/agents</text>
+                <path class="bx" d="M680,502 Q680,484 698,484 H800 L822,504 H1042 Q1060,504 1060,522 V586 Q1060,604 1042,604 H698 Q680,604 680,586 Z"/>
+                <text class="l36 mono" x="870" y="567" text-anchor="middle">.codex/agents</text>
+              </g>
+              <g data-fact="F123">
+                <path class="ln" d="M870,404 V484" marker-start="url(#ahm)" marker-end="url(#ahm)"/>
+                <text class="l36 mono sc" x="898" y="457">mirror</text>
+              </g>
+            </g>
+            <!-- 3박자: lock 문서(폴더와 64px) + 동료 PC + 말풍선 -->
+            <g id="v9lk" data-fact="F158">
+              <path class="bx" d="M1124,284 Q1124,268 1140,268 H1496 L1536,308 V372 Q1536,388 1520,388 H1140 Q1124,388 1124,372 Z"/>
+              <path class="ln" d="M1496,268 V308 H1536"/>
+              <text class="l36 mono" x="1148" y="341">harnesskit.lock</text>
+            </g>
+            <g id="v9pc" data-fact="F153">
+              <rect id="v9scr" x="1170" y="476" width="340" height="180" rx="16" class="bx2"/>
+              <path class="ln" d="M1320,656 L1310,684 H1370 L1360,656"/>
+              <text class="l36" x="1194" y="522">동료 PC</text>
+              <path class="bx" d="M714,668 H1076 Q1100,668 1100,692 V694 L1156,640 L1100,714 V720 Q1100,744 1076,744 H714 Q690,744 690,720 V692 Q690,668 714,668 Z"/>
+              <text class="l36" x="895" y="719" text-anchor="middle">lock 대로 맞춰줘</text>
+            </g>
+            <!-- 움직임: lock 문서 사본이 동료 PC로 날아가면 같은 하네스 카드가 모니터에 생긴다 -->
+            <g id="v9fly">
+              <path d="M1313,404 H1351 L1367,420 V476 H1313 Z" style="fill:var(--s-raised);stroke:var(--s-accent);stroke-width:4;stroke-linejoin:round"/>
+              <path class="ck" d="M1323,444 L1331,452 L1345,436" style="stroke-width:4"/>
+            </g>
+            <g id="v9mini" data-fact="F153"><g transform="translate(-30 -80)">
+              <rect x="1250" y="620" width="240" height="104" rx="14" class="hb"/>
+              <text class="l28" x="1370" y="660" text-anchor="middle">하네스</text>
+              <g><g class="agf" transform="translate(1310 698) scale(0.45)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><g class="agf" transform="translate(1350 698) scale(0.45)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><g class="agf" transform="translate(1390 698) scale(0.45)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g><g class="agf" transform="translate(1430 698) scale(0.45)"><rect x="-28" y="-20" width="56" height="44" rx="12"/><path d="M0,-20 V-28 M-28,2 H-35 M28,2 H35 M-9,13 H9"/><circle cx="0" cy="-32" r="4"/><circle cx="-11" cy="0" r="5"/><circle cx="11" cy="0" r="5"/></g></g>
+            </g></g>
+            <!-- 동료 PC 아래 두 줄(10차 사용자 결정 문구). 모니터를 위로 올려(y 476~656, 받침 684까지) 두 줄이 y 780 안·무대 폭 안(x 약 1125~1535)에 들고 말풍선과 겹치지 않게 -->
+            <text id="v9same" class="l32 sc" x="1330" y="744" text-anchor="middle" data-fact="F157 F153" style="font-weight:700"><tspan x="1330">동료 PC에서도 설정을 공유해</tspan><tspan x="1330" dy="36">그대로 쓸 수 있어요</tspan></text>
+          </svg>
+        </section>
+
+        <!-- ===== S14 START(S01과 수미상관): 같은 입력창에 '킷으로 이 프로젝트 하네스 만들어줘' → 멈춤 → 보내기 '딸깍' → 기능 카드 여섯이 하나씩 떠 강조 → 태그라인 → 맨 아래 작은 한 줄('지금 바로 사용해보세요!') ===== -->
+        <section class="scene" id="s14" data-scene="S14" data-duration="13.5" data-label="START" data-title="킷으로 하네스 만들어줘, 한마디면 끝" aria-label="장면 16 킷으로 하네스 만들어줘, 한마디면 끝" data-tracker="@end">
+          <header class="hud2" id="v14h">
+            <p class="hud-tag">START</p>
+            <p class="hud-p">복잡한 하네스 쉽게 시작해보세요!</p>
+          </header>
+          <ol class="narr" hidden>
+            <li data-at="0" data-fact="F001 F004">그 일에 맞는 에이전트·스킬·작업 순서를 만들고, 부딪히는 스킬은 미리 정리합니다.</li>
+            <li data-at="8" data-fact="F003">더 많은 스킬이 아닌, 더 잘 맞는 AI. 지금 HarnessKit으로 시작하세요.</li>
+          </ol>
+          <svg class="sv" viewBox="0 0 1600 900" aria-hidden="true">
+            <!-- 입력창(S01과 같은 모양·크기, 자리는 무대 위쪽 y 150~290) -->
+            <g id="v14in" data-fact="F205">
+              <rect class="inbx" x="300" y="150" width="1000" height="140" rx="70"/>
+              <text id="v14q" class="l40 reg" x="364" y="234">킷으로 이 프로젝트 하네스 만들어줘</text>
+              <rect id="v14cur" class="caret" x="370" y="196" width="4" height="48"/>
+              <g id="v14snd"><rect class="snd" x="1196" y="180" width="80" height="80" rx="22"/><path class="snda" d="M1236,240 V200 M1218,218 L1236,200 L1254,218"/></g>
+              <rect id="v14rg" class="sndr" x="1196" y="180" width="80" height="80" rx="22"/>
+            </g>
+            <!-- 기능 카드 여섯(700 x 88, 2열 3행, y 322~634): 선 아이콘 + 라벨(네 낱말 이하) + 오른쪽 작은 체크. 하네스 전체(작업 순서·에이전트·스킬·개선) → 충돌 정리 → 두 도구.
+                 16차: 무대 아래 진행 표시줄(y 816~)에 자리를 내주려고 카드 높이 104 → 88(가운데 그대로), 줄마다 감싼 g로 위로 당김(-16 · -36 · -56) — 줄 사이 24, 입력창과 32 -->
+            <g transform="translate(0 -16)">
+            <g id="v14k1" data-fact="F001 F109"><rect class="bx" x="88" y="338" width="700" height="88" rx="18"/>
+              <path class="s14i" d="M112,366 H130 L142,382 L130,398 H112 L124,382 Z M142,366 H160 L172,382 L160,398 H142 L154,382 Z"/>
+              <text class="l36" x="188" y="396">워크플로 만들기</text>
+              <path class="ck" style="stroke-width:5" d="M736,382 L746,392 L764,372"/></g>
+            <g id="v14k2" data-fact="F001 F109"><rect class="bx" x="812" y="338" width="700" height="88" rx="18"/>
+              <rect class="s14i" x="840" y="368" width="44" height="34" rx="9"/><path class="s14i" d="M862,368 V358"/><circle cx="853" cy="385" r="3.5" style="fill:var(--s-key)"/><circle cx="871" cy="385" r="3.5" style="fill:var(--s-key)"/>
+              <text class="l36" x="912" y="396">서브에이전트 정의</text>
+              <path class="ck" style="stroke-width:5" d="M1460,382 L1470,392 L1488,372"/></g>
+            </g>
+            <g transform="translate(0 -36)">
+            <g id="v14k3" data-fact="F001 F003 F004"><rect class="bx" x="88" y="470" width="700" height="88" rx="18"/>
+              <path class="s14i" d="M120,502 H133 a5,5 0 1 1 10,0 H156 V514 a5,5 0 1 1 0,10 V536 H120 Z"/>
+              <text class="l36" x="188" y="528">딱 맞는 스킬</text>
+              <path class="ck" style="stroke-width:5" d="M736,514 L746,524 L764,504"/></g>
+            <g id="v14k4" data-fact="F004 F288"><rect class="bx" x="812" y="470" width="700" height="88" rx="18"/>
+              <rect class="s14i" x="842" y="492" width="28" height="28" rx="6"/><rect class="s14i" x="858" y="508" width="28" height="28" rx="6" style="stroke:var(--s-danger)"/>
+              <text class="l36" x="912" y="528">부딪히는 스킬 미리 정리</text>
+              <path class="ck" style="stroke-width:5" d="M1460,514 L1470,524 L1488,504"/></g>
+            </g>
+            <g transform="translate(0 -56)">
+            <g id="v14k5" data-fact="F137 F391"><rect class="bx" x="88" y="602" width="700" height="88" rx="18"/>
+              <path class="s14i" d="M114,626 H154 Q162,626 162,634 V652 Q162,660 154,660 H134 L122,672 V660 H114 Q106,660 106,652 V634 Q106,626 114,626 Z"/><path class="ck" style="stroke-width:4" d="M122,643 L130,651 L146,635"/>
+              <text class="l36" x="188" y="660">하네스 자동 개선 제안</text>
+              <path class="ck" style="stroke-width:5" d="M736,646 L746,656 L764,636"/></g>
+            <g id="v14k6" data-fact="F291"><rect class="bx" x="812" y="602" width="700" height="88" rx="18"/>
+              <rect class="s14i" x="842" y="628" width="44" height="36" rx="6"/><path class="s14i" d="M851,640 L858,646 L851,652 M862,653 H874"/>
+              <text class="l36" x="912" y="660">Claude Code + Codex</text>
+              <path class="ck" style="stroke-width:5" d="M1460,646 L1470,656 L1488,636"/></g>
+            </g>
+            <!-- 마지막 줄(9.7~10.5): 태그라인(README 인용 그대로, 글자 약 y 677~736) + 맨 아래 작은 한 줄('지금 바로 사용해보세요!', 글자 약 y 754~781).
+                 16차: 진행 표시줄(y 816~870)과 겹치지 않게 둘 다 그림 자리 안으로 올림(태그라인 788 → 724, 작은 한 줄 844 → 778) -->
+            <text id="v14tg" class="l56 sc" x="800" y="724" text-anchor="middle" data-fact="F003">더 많은 스킬이 아닌, 더 잘 맞는 AI.</text>
+            <text id="v14ins" class="l28 mu" x="800" y="778" text-anchor="middle">지금 바로 사용해보세요!</text>
+          </svg>
+        </section>
+        <div class="trk" id="trk" aria-hidden="true" hidden><ol><li><span>진단</span></li><li><span>스킬 찾기</span></li><li><span>점검·설치</span></li><li><span>설계·조립</span></li><li><span>기록</span></li><li><span>실행</span></li><li><span>토큰</span></li><li><span>세션</span></li><li><span>개선</span></li><li><span>Codex</span></li></ol></div>
+      </div>
+    </div>
+
+    <p class="caption" id="caption" data-hk="caption" aria-live="polite"><span class="cap-t" id="capText"></span></p>
+
+    <div class="controls">
+      <button class="btn primary" id="bPlay" data-hk="play" aria-pressed="false" aria-label="재생" data-state="paused" type="button">
+        <svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z"/></svg>
+        <svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2.5h3v11h-3zM9.5 2.5h3v11h-3z"/></svg>
+        <svg class="i-replay" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.4.5A4 4 0 1 0 8 4v2L4.5 3.2 8 .5z"/></svg>
+      </button>
+      <button class="btn" id="bPrev" data-hk="prev" type="button" aria-label="이전 장면"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h2v11H3zM13 2.5v11L6 8z"/></svg></button>
+      <button class="btn" id="bNext" data-hk="next" type="button" aria-label="다음 장면"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11 2.5h2v11h-2zM3 2.5v11L10 8z"/></svg></button>
+      <span class="time" data-hk="time"><span id="tNow"></span><span class="t-all"> / <span id="tAll"></span></span></span>
+      <div class="track" id="track" role="slider" tabindex="0" aria-label="재생 위치 (←/→ 5초 이동)" aria-valuemin="0">
+        <div class="segs" id="segs" data-hk="progress" role="progressbar" aria-label="전체 진행률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+      </div>
+      <button class="btn speed" id="bSpeed" data-hk="speed" type="button" aria-label="재생 속도 1배">1×</button>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+'use strict';
+const NS='http://www.w3.org/2000/svg';
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+/* 무대 색은 :root 변수(DESIGN.md Colors '무대 색 쓰임')에서 읽는다 */
+const CV=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const K={sky:CV('--s-accent'),key:CV('--s-key'),text:CV('--s-text'),muted:CV('--s-muted'),bg:CV('--s-bg'),raised:CV('--s-raised'),line:CV('--s-line'),danger:CV('--s-danger')};
+
+/* ---------- 자체 시간축 엔진: 상태는 '지금 시각'만으로 정해진다 ---------- */
+const Tween=(function(){
+  const EZ={none:t=>t};
+  [1,2,3].forEach(n=>{const k=n+1;
+    EZ['power'+n+'.in']=t=>Math.pow(t,k);
+    EZ['power'+n+'.out']=t=>1-Math.pow(1-t,k);
+    EZ['power'+n+'.inOut']=t=>t<.5?Math.pow(2*t,k)/2:1-Math.pow(2-2*t,k)/2;});
+  function ease(e){
+    if(typeof e==='function') return e;
+    e=e||'power1.out'; if(EZ[e]) return EZ[e];
+    let m=/^back\.out(?:\(([\d.]+)\))?$/.exec(e);
+    if(m){const c=m[1]?+m[1]:1.70158; return t=>1+(c+1)*Math.pow(t-1,3)+c*Math.pow(t-1,2);}
+    m=/^elastic\.out(?:\(([\d.]+),\s*([\d.]+)\))?$/.exec(e);
+    if(m){const a=Math.max(1,m[1]?+m[1]:1), p=m[2]?+m[2]:.3, s=p/(2*Math.PI)*Math.asin(1/a);
+      return t=>(t<=0||t>=1)?Math.min(1,Math.max(0,t)):a*Math.pow(2,-10*t)*Math.sin((t-s)*2*Math.PI/p)+1;}
+    return EZ.none;
+  }
+  const SKIP={duration:1,ease:1,stagger:1,onUpdate:1,immediateRender:1,onComplete:1};
+  const TF={x:1,y:1,scale:1,scaleX:1,scaleY:1,rotation:1};
+  const NUM=/-?\d*\.?\d+(?:e-?\d+)?/g;
+  const isEl=o=>!!(o&&o.nodeType===1);
+  const arr=t=>t==null?[]:typeof t==='string'?$$(t):(Array.isArray(t)||t instanceof NodeList)?Array.from(t):[t];
+  function hex(h){h=h.slice(1); if(h.length===3) h=h.replace(/./g,c=>c+c);
+    return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},1)`;}
+  function norm(v){ if(typeof v!=='string') return v;
+    return v.replace(/#[0-9a-f]{6}\b|#[0-9a-f]{3}\b/gi,hex).replace(/rgb\(([^()]*)\)/g,(m,a)=>`rgba(${a},1)`); }
+  function lerp(a,b,p){
+    if(typeof a==='number'&&typeof b==='number') return a+(b-a)*p;
+    if(p<=0) return a; if(p>=1) return b;
+    const A=String(a).match(NUM)||[], B=String(b).match(NUM)||[];
+    if(!B.length||A.length!==B.length) return b;
+    let i=0; return String(b).replace(NUM,()=>{const v=+A[i]+(+B[i]-+A[i])*p; i++; return String(Math.round(v*1000)/1000);});
+  }
+  function defVal(o,k){
+    if(!isEl(o)) return o[k];
+    if(k in TF) return (k==='scale'||k==='scaleX'||k==='scaleY')?1:0;
+    if(k==='autoAlpha'||k==='opacity') return 1;
+    if(k==='strokeDashoffset') return 0;
+    if(k.startsWith('--')) return getComputedStyle(o).getPropertyValue(k).trim();
+    return norm(getComputedStyle(o)[k]);
+  }
+  function apply(o,k,v){
+    if(!isEl(o)){o[k]=v; return;}
+    if(k in TF){const s=o.__t||(o.__t={x:0,y:0,scale:1,scaleX:1,scaleY:1,rotation:0}); s[k]=v; s.d=1; return;}
+    const st=o.style;
+    if(k==='autoAlpha'){st.opacity=v; st.visibility=v<=.001?'hidden':'inherit'; return;}
+    if(k.startsWith('--')){st.setProperty(k,v); return;}
+    st[k]=(typeof v==='number'&&k!=='opacity')?v+'px':v;
+  }
+  function flush(o){const s=o.__t; if(!s||!s.d) return; s.d=0;
+    const sx=s.scale*s.scaleX, sy=s.scale*s.scaleY;
+    o.style.transform=`translate(${s.x}px,${s.y}px)`+(s.rotation?` rotate(${s.rotation}deg)`:'')+((sx!==1||sy!==1)?` scale(${sx},${sy})`:'');}
+  function timeline(opt){
+    opt=opt||{};
+    const tracks=[], tmap=new Map(), objs=new Map(), calls=[];
+    let T=0, paused=true, ts=1, dur=0, raf=0, last=0, ready=false, seq=0, first=true;
+    function track(o,k){let m=tmap.get(o); if(!m){m={}; tmap.set(o,m);}
+      if(!m[k]){const b=o.__b&&(k in o.__b)?o.__b[k]:defVal(o,k); m[k]={o,k,base:b,tw:[],last:undefined}; tracks.push(m[k]);}
+      return m[k];}
+    function base(o,k,v){(o.__b||(o.__b={}))[k]=v; const m=tmap.get(o); if(m&&m[k]) m[k].base=v; apply(o,k,v);}
+    function add(targets,from,to,at,vars){
+      const els=arr(targets), d=vars.duration==null?.5:vars.duration, e=ease(vars.ease), stg=vars.stagger||0, src=to||from;
+      els.forEach((o,i)=>{
+        const s=at+i*stg, id=seq++;
+        Object.keys(src).forEach(k=>{
+          if(SKIP[k]) return;
+          if(k==='transformOrigin'){ if(isEl(o)) o.style.transformOrigin=src[k]; return; }
+          const tr=track(o,k);
+          const w={s,d,e,id,from:from&&(k in from)?norm(from[k]):undefined,to:to&&(k in to)?norm(to[k]):undefined};
+          tr.tw.push(w);
+          if(from&&to&&vars.immediateRender!==false) base(o,k,w.from);
+        });
+        if(!isEl(o)&&vars.onUpdate){ if(!objs.has(o)) objs.set(o,[]); objs.get(o).push({s,id,fn:vars.onUpdate}); }
+        dur=Math.max(dur,s+d);
+      });
+      ready=false; return api;
+    }
+    function setBase(targets,vars){
+      arr(targets).forEach(o=>{ for(const k in vars){ if(k==='transformOrigin'){o.style.transformOrigin=vars[k]; continue;} base(o,k,norm(vars[k])); } if(isEl(o)) flush(o); });
+      ready=false; return api;
+    }
+    function ev(w,t){const p=w.d>0?Math.min(1,Math.max(0,(t-w.s)/w.d)):(t>=w.s?1:0); return lerp(w.from,w.to,w.e(p));}
+    function valAt(tr,t,lim){let w=null; for(let i=0;i<lim;i++){if(tr.tw[i].s<=t) w=tr.tw[i]; else break;} return w?ev(w,t):tr.base;}
+    function prep(){
+      tracks.forEach(tr=>{ tr.tw.sort((a,b)=>a.s-b.s||a.id-b.id);
+        tr.tw.forEach((w,i)=>{ if(w.from===undefined) w.from=valAt(tr,w.s,i); if(w.to===undefined) w.to=valAt(tr,w.s,i); });
+        tr.last=undefined; });
+      objs.forEach(l=>l.sort((a,b)=>a.s-b.s||a.id-b.id));
+      ready=true; first=true;
+    }
+    function render(t){
+      if(!ready) prep();
+      T=t; const vt=api.map?api.map(t):t, dirty=new Set();
+      for(const tr of tracks){
+        const tw=tr.tw; let w=null;
+        for(let i=0;i<tw.length;i++){ if(tw[i].s<=vt) w=tw[i]; else break; }
+        const v=w?ev(w,vt):tr.base;
+        if(v!==tr.last){ tr.last=v; apply(tr.o,tr.k,v); dirty.add(tr.o); }
+      }
+      dirty.forEach(o=>{ if(isEl(o)) flush(o); });
+      objs.forEach((l,o)=>{ if(!first&&!dirty.has(o)) return; let f=l[0]; for(const x of l){ if(x.s<=vt) f=x; else break; } f.fn.call(o); });
+      first=false;
+      if(opt.onUpdate) opt.onUpdate();
+    }
+    function tick(now){
+      raf=0; if(paused) return;
+      const dt=Math.min(.1,Math.max(0,(now-last)/1000)); last=now;
+      const prev=T, nt=Math.min(dur,T+dt*ts);
+      for(const c of calls) if(c.s>prev&&c.s<=nt) c.fn();
+      render(nt);
+      if(nt>=dur){ paused=true; if(opt.onComplete) opt.onComplete(); return; }
+      raf=requestAnimationFrame(tick);
+    }
+    const api={
+      map:null,
+      to:(t,v,at)=>add(t,null,v,at,v),
+      from:(t,v,at)=>add(t,v,null,at,v),
+      fromTo:(t,f,v,at)=>add(t,f,v,at,v),
+      set:(t,v,at)=>add(t,null,v,at,Object.assign({},v,{duration:0})),
+      call(fn,args,at){calls.push({s:at,fn:()=>fn.apply(null,args||[])}); dur=Math.max(dur,at); return api;},
+      add(x,at){ if(typeof x==='function') api.call(x,null,at); return api; },
+      base:setBase,
+      time(t){ if(t===undefined) return T; render(Math.max(0,Math.min(dur,+t||0))); return api; },
+      duration(){return dur;},
+      progress(){return dur?T/dur:0;},
+      paused(){return paused;},
+      play(){ if(!paused) return api; paused=false; last=performance.now(); if(!raf) raf=requestAnimationFrame(tick); return api; },
+      pause(){ paused=true; if(raf){cancelAnimationFrame(raf); raf=0;} return api; },
+      restart(){ api.pause(); render(0); return api.play(); },
+      timeScale(x){ if(x===undefined) return ts; ts=x; return api; },
+      end(x){ dur=Math.max(dur,x); return api; }
+    };
+    return api;
+  }
+  return {timeline,arr};
+})();
+
+/* ---------- 장면 정보 (section의 data-* 에서 읽는다) ---------- */
+const SC=$$('#world > .scene');
+let acc=0;
+const CH=SC.map(el=>{
+  const c={el,label:el.dataset.label,name:el.dataset.title,dur:+el.dataset.duration};
+  c.rest=c.dur-.6; c.start=acc; acc+=c.dur;
+  c.lines=$$('.narr li',el).map(li=>({at:+li.dataset.at,text:li.textContent.trim(),fact:li.dataset.fact||''}));
+  return c;
+});
+const TOTAL=acc;
+/* 재생 속도(4차): data-duration·장면 타임라인 시각은 조각의 '시간' 단위 그대로 두고, 엔진을 BASE배로 돌린다(새 1× = 이전 1.5×).
+   화면에 보이는 시각(지금/전체·장면 목록·진행 막대 슬라이더 값)은 실제 초 = 장면 시간 ÷ BASE */
+const BASE=1.5, RT=x=>x/BASE;
+/* 진행 표시줄: section의 data-tracker(| 로 구분) 이름이 장면 안에서 차례로 지금 점(.on)이 된다. 둘째 이름부터 바뀌는 시각은 data-tracker-at(| 로 구분, 장면 시간 단위, 그림 시각 기준)이고, 없으면 마지막 이름 하나. 지금 점 앞 점은 모두 지난 점(.done).
+   '@start'는 모든 점 테두리만, '@end'는 모든 점 채움(둘 다 지금 칸·이름 없음). 값이 없거나 칸 이름과 맞지 않으면 숨긴다. 칸은 li 글자로 맞춘다(17차: 한 ol 안 li 10개) */
+const TRK=document.getElementById('trk'), TRK_LI=TRK?$$('li',TRK):[];
+let trkOn=-2;
+function setTrk(i,lt){
+  if(!TRK) return;
+  const d=CH[i].el.dataset, on=(d.tracker||'').split('|').map(x=>x.trim()).filter(Boolean);
+  const at=(d.trackerAt||'').split('|').map(x=>x.trim()).filter(Boolean).map(Number);
+  let n=at.length?0:on.length-1; while(n<on.length-1&&n<at.length&&lt>=at[n]) n++;
+  const v=on[n], k=TRK_LI.findIndex(li=>li.textContent.trim()===v);
+  const cur=v==='@start'?-1:v==='@end'?TRK_LI.length:k<0?-9:k;
+  if(cur===trkOn) return; trkOn=cur;
+  TRK.hidden=cur===-9;
+  TRK_LI.forEach((li,j)=>{li.classList.toggle('on',j===cur); li.classList.toggle('done',j<cur);});
+}
+
+/* ---------- 무대 확대·축소 ---------- */
+const stage=$('#stage'), world=$('#world');
+function fit(){
+  const W=stage.clientWidth, H=stage.clientHeight, s=Math.min(W/1600,H/900);
+  world.style.transform=`translate(${(W-1600*s)/2}px,${(H-900*s)/2}px) scale(${s})`;
+}
+new ResizeObserver(fit).observe(stage); fit();
+
+/* ---------- 도우미 ---------- */
+let sync=()=>{}, setBtn=()=>{};
+const tl=Tween.timeline({paused:true,onUpdate:()=>sync(),onComplete:()=>setBtn()});
+const arr=Tween.arr;
+const E=id=>document.getElementById(id);
+function svgEl(tag,attrs,parent){const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); if(parent) parent.appendChild(e); return e;}
+function hide(t,v){tl.base(arr(t),Object.assign({autoAlpha:0},v||{}));}
+function pop(t,at,o){
+  o=o||{}; const els=arr(t);
+  tl.base(els,{autoAlpha:0,x:o.fromX||0,y:o.fromY==null?18:o.fromY,scale:o.fromScale==null?1:o.fromScale});
+  tl.to(els,{autoAlpha:1,x:0,y:0,scale:1,duration:o.d||.5,ease:o.ease||'power3.out',stagger:o.st||0},at);
+}
+function fade(t,at,d,to){const els=arr(t); tl.base(els,{autoAlpha:0}); tl.to(els,{autoAlpha:to==null?1:to,duration:d||.5,ease:'power1.out'},at);}
+function out(t,at,d){tl.to(arr(t),{autoAlpha:0,duration:d||.4,ease:'power1.in'},at);}
+function to(t,v,at,d,e){tl.to(arr(t),Object.assign({duration:d==null?.4:d,ease:e||'power2.inOut'},v),at);}
+function draw(t,at,d){
+  arr(t).forEach(p=>{const L=Math.ceil(p.getTotalLength())+2;
+    tl.base(p,{strokeDasharray:L+' '+L,strokeDashoffset:L,autoAlpha:0});
+    tl.set(p,{autoAlpha:1},at); tl.to(p,{strokeDashoffset:0,duration:d||.8,ease:'power2.inOut'},at);});
+}
+/* 왼쪽 끝에서 오른쪽으로 자라남(점선·화살표·문서 줄) */
+function grow(t,at,d){const els=arr(t); tl.base(els,{autoAlpha:0,scaleX:0,transformOrigin:'0% 50%'}); tl.set(els,{autoAlpha:1},at); tl.to(els,{scaleX:1,duration:d||.5,ease:'power2.out'},at);}
+/* 좌우로 흔들림: base 위치를 중심으로 n번 오가고 base로 돌아온다 */
+function shake(t,at,dur,amp,n,base,inv){const els=arr(t), st=dur/n; for(let k=0;k<n;k++){const v=k===n-1?base:base+(k%2?-amp:amp)*(inv?-1:1); tl.to(els,{x:v,duration:st,ease:'power1.inOut'},at+k*st);}}
+/* 선이나 칸을 켬: 흐린 상태에서 또렷하게, 테두리는 하늘색 */
+function lit(g,at,edge){tl.to(g,{autoAlpha:1,duration:.3},at); tl.to(edge||$('rect',g),{stroke:K.sky,duration:.3},at);}
+function flash(el,at,from){tl.to(el,{stroke:K.sky,duration:.2},at); tl.to(el,{stroke:from,duration:.3},at+.25);}
+/* 입력창(S01·S14 공용, id 앞머리 p + q·cur·snd·rg): a~b 글이 타자처럼 쳐지고 커서가 따라옴 → b~c 멈춤(커서만 깜박) → c 보내기 '딸깍'(살짝 작아졌다 돌아오고 남색 링이 한 번 퍼짐) */
+function ask(p,a,b,c){
+  const q=E(p+'q'), cur=E(p+'cur'), snd=E(p+'snd'), rg=E(p+'rg'), full=q.textContent, x0=+q.getAttribute('x'), ob={n:0};
+  tl.to(ob,{n:full.length,duration:b-a,ease:'none',onUpdate:()=>{const n=Math.round(ob.n); q.textContent=full.slice(0,n); cur.setAttribute('x',x0+6+(n?q.getComputedTextLength():0));}},a);
+  for(let k=1;b+k*.3<c-.05;k++) tl.set(cur,{autoAlpha:k%2?0:1},b+k*.3);
+  tl.set(cur,{autoAlpha:0},c);
+  to(snd,{scale:.86},c,.1,'power1.out'); to(snd,{scale:1},c+.1,.16,'power2.out');
+  tl.base(rg,{autoAlpha:0,scale:1}); tl.set(rg,{autoAlpha:1},c); tl.to(rg,{autoAlpha:0,scale:1.5,duration:.45,ease:'power2.out'},c+.02);
+}
+/* 빛 점: 길(path)을 따라 흐르는 점 */
+function dotG(svg){const g=svgEl('g',{},svg); svgEl('circle',{r:22,style:'fill:var(--s-accent);opacity:.25'},g); svgEl('circle',{r:10,style:'fill:var(--s-accent)'},g); return g;}
+function packet(svg,d,at,dur,ease){
+  const path=svgEl('path',{d,style:'fill:none;stroke:none'},svg), g=dotG(svg), L=path.getTotalLength(), ob={t:0};
+  const mv=()=>{const p=path.getPointAtLength(ob.t*L); g.setAttribute('transform',`translate(${p.x},${p.y})`);};
+  mv(); tl.base(g,{autoAlpha:0}); tl.set(g,{autoAlpha:1},at);
+  tl.to(ob,{t:1,duration:dur,ease:ease||'power1.inOut',onUpdate:mv},at);
+  tl.set(g,{autoAlpha:0},at+dur);
+}
+
+/* ---------- 장면 타임라인 (조각의 등장 순서·시각) ---------- */
+/* S01(11.7): 0박자 HUD·예시 배지·큰 제목·입력창 → 요청이 타자처럼 쳐짐(0.5~3.0, 커서가 따라옴).
+   멈춤(3.0~3.8): 커서만 깜박 → 3.8 보내기 '딸깍'(원인, 공용 ask).
+   1박자(4.1~6.1, 한 번에): 입력창이 위로 줄어들며 사라지고 그 가운데(800,400)에서 큰 타일 넷이 함께 펼쳐짐(연결선 없이 움직임으로 이음) → 안쪽 그림이 동시에 한 번씩(화살표·에이전트 상자·스킬 카드가 붙음·말풍선 → 승인 ✓).
+   2박자(6.1~7.9): 넷이 가운데로 모여 0.7배 블록으로 맞물리고(라벨 28px), '하네스' 테두리와 이름표가 붙음(결과).
+   3박자(7.9~8.7): 묶음 아래 강조 줄. 그 뒤 장식 움직임 없이 3.0 머묾 */
+function b1(t,s){
+  pop([E('a1h'),E('a1x'),E('a1ttl'),E('a1in')],t,{d:.6,fromY:16});
+  ask('a1',t+.5,t+3.0,t+3.8);
+  /* 1박자 */
+  to(E('a1in'),{scale:.5,y:-40,autoAlpha:0},t+4.1,.4,'power2.in');
+  const T=['a1t1','a1t2','a1t3','a1t4'].map(E), R=T.map(g=>$('rect',g));
+  [[512,432],[1088,432],[512,624],[1088,624]].forEach(([cx,cy],i)=>{
+    tl.base(T[i],{autoAlpha:0,x:800-cx,y:400-cy,scale:.3});
+    tl.to(T[i],{autoAlpha:1,x:0,y:0,scale:1,duration:.7,ease:'power3.out'},t+4.2);});
+  const c=t+4.9;
+  pop($$('.a1chev',s),c,{d:.35,fromX:-28,fromY:0,st:.12});
+  pop($$('.a1ag',s),c,{d:.4,fromY:0,fromScale:.5,st:.1,ease:'back.out(1.8)'});
+  pop($$('.a1sk',s),c,{d:.55,fromX:-180,fromY:0,st:.12});
+  pop(E('a1bub'),c,{d:.35,fromY:8,fromScale:.4,ease:'back.out(2)'});
+  draw(E('a1arw'),c+.35,.25);
+  pop(E('a1ok'),c+.6,{d:.35,fromY:0,fromScale:.5,ease:'back.out(2)'});
+  /* 2박자: 가운데로 모여 하나의 묶음(0.7배, 블록 사이 8) */
+  const g=t+6.1;
+  [[102,22],[-102,22],[102,-50],[-102,-50]].forEach(([dx,dy],i)=>
+    tl.to(T[i],{x:dx,y:dy,scale:.7,duration:.8,ease:'power2.inOut'},g));
+  tl.to(R,{stroke:K.key,duration:.4},g+.4);
+  pop(E('a1hb'),g+.8,{d:.5,fromY:0,fromScale:1.04});
+  pop(E('a1tag'),g+1.1,{d:.45,fromY:-12});
+  /* 3박자: 강조 줄 */
+  pop(E('a1ln'),t+7.9,{d:.8,fromY:16});
+}
+/* S02: 0박자 HUD·프로젝트 폴더(선반 4칸)·돋보기. 1박자 스캔 빛이 선반을 왼쪽에서 오른쪽으로 한 번 훑고, 빛이 지난 카드가 켜짐.
+   2박자 스캔이 끝나면(원인) 폴더 아래로 두 갈래 길이 함께 열림(결과): 왼쪽은 블록이 바닥부터 쌓이고, 오른쪽은 알림이 잠깐 뜬 뒤 기존 묶음에 블록 하나가 끼워지고 알림이 '필요한 단계만 확장'으로 바뀜. 등장은 5.6초에 끝난다 */
+function b2(t,s){
+  pop([E('a2h'),E('a2f')],t,{d:.6,fromY:16});
+  pop(E('a2mg'),t+.4,{d:.4,fromY:0,fromScale:.6});
+  const bm=E('a2beam'); tl.base(bm,{autoAlpha:0,x:0}); tl.set(bm,{autoAlpha:1},t+.8);
+  to(bm,{x:720},t+.8,1.6,'none'); out(bm,t+2.4,.3);
+  $$('.a2card',s).forEach((r,k)=>to(r,{stroke:K.sky},t+.8+1.6*((78+188*k)/720),.25));
+  draw($$('path',E('a2fork')),t+3.0,.45);
+  pop([E('a2L'),E('a2R')],t+3.3,{d:.6,fromY:20});
+  pop($$('.a2stk',s),t+3.9,{d:.35,fromY:-50,st:.12,ease:'power2.out'});
+  pop(E('a2note'),t+3.7,{d:.4,fromY:10});
+  pop(E('a2new'),t+4.4,{d:.45,fromX:90,fromY:0});
+  out(E('a2note'),t+5.0,.3);
+  pop(E('a2Rt'),t+5.2,{d:.4,fromY:10});
+}
+/* S04: 1박자(0~0.8초) HUD·'57'·빈 박스 8개가 한 번에 선다.
+   2박자(1.0초~) 박스 8개가 동시에, 칸이 왼쪽 위부터 0.1초 간격으로 차오르고 라벨 숫자가 0에서 그 수까지 함께 오른다
+   — 칸이 많은 박스일수록 오래 차서 '많다'가 보인다(DESIGN Don't 5차 예외 이어서). UI/UX 14가 다 차면 테두리가 한 번 accent로 빛난다 */
+function b4(t,s){
+  pop([E('a4h'),E('a4n'),E('a4bx')],t,{d:.6,fromY:16});
+  const B=[[3,64,352],[14,438,352],[10,812,352],[9,1186,352],[2,64,552],[6,438,552],[3,812,552],[4,1186,552,'+']], at=t+1.0, st=.1;
+  B.forEach(([n,x,y,plus],k)=>{
+    const g=E('a4b'+k), cells=[];
+    for(let i=0;i<n;i++) cells.push(svgEl('rect',{class:'a4c',x:x+21+45*(i%7),y:y+78+45*Math.floor(i/7),width:38,height:38,rx:8},g));
+    pop(cells,at,{d:.15,fromY:0,fromScale:.4,st});
+    const num=E('a4k'+k), ob={n:0};
+    tl.to(ob,{n,duration:n*st,ease:'none',onUpdate:()=>{const v=Math.min(n,Math.ceil(ob.n-1e-6)); num.textContent=String(v)+(plus&&v>=n?plus:'');}},at);
+  });
+  pop(E('a4open'),at+.4,{d:.2,fromY:0,fromScale:.4});
+  flash(E('a4r1'),at+1.4+.2,K.line);
+}
+/* S05: 1박자(0~1.2초) HUD·예시 배지 → 목표 카드 → 더미·바구니가 서고 목표에서 바구니로 짧은 선.
+   2박자(주워 담기): 목표 카드가 한 번 빛나고, 목표에서 나온 점선이 더미 속 맞는 카드를 하나씩 가리키면 그 카드가 켜져(테두리 accent) 곡선을 그리며 바구니 자리에 쏙. 나머지 더미는 흐려진다.
+   3박자: 웹 돋보기는 2박자와 같은 때 따로 훑기 시작한다(빈 칸 깜박임 없음). 데려온 카드는 '웹 탐색' 글자 오른쪽에서 작게 떠올라 바구니 바닥 안쪽 틈(design-qa 카드 아래)을 따라 오른쪽으로 간 뒤 빈자리로 올라서며 커진다(9차: 목표 연결선·'Anthropic 문서 스킬(PPT)' 카드 위를 지나지 않음) → 바구니 체크. 5.8초에 끝난다 */
+function b5(t,s){
+  const q=id=>E('a5'+id);
+  $$('rect',q('pile')).forEach(r=>tl.base(r,{rotation:+r.getAttribute('data-r')}));
+  pop([q('h'),q('x')],t,{d:.6,fromY:16});
+  pop(q('goal'),t+.1,{d:.6,fromY:16});
+  pop([q('cl'),q('pile'),q('bk')],t+.5,{d:.7,fromY:16});
+  fade(q('gl'),t+.9,.3);
+  flash(q('gr'),t+1.3,K.key);
+  pop(q('web'),t+1.2,{d:.5,fromY:16});
+  const mg=q('mg'); tl.base(mg,{autoAlpha:0,x:0});
+  tl.to(mg,{autoAlpha:1,duration:.15},t+1.5);
+  to(mg,{x:200},t+1.5,1.1,'power1.inOut'); to(mg,{x:40},t+2.6,1.0,'power1.inOut'); to(mg,{x:230},t+3.6,.6,'power1.inOut');
+  out(mg,t+4.2,.2);
+  [['n1',-666,24,-3,-50],['n2',-1140,184,4,-50],['n3',-496,30,-4,-40]].forEach(([id,dx,dy,r,pk],i)=>{
+    const c=q(id), p=q('p'+(i+1)), a=t+1.5+i*.6;
+    tl.base(c,{x:dx,y:dy,rotation:r});
+    fade(c,t+.5,.7);
+    fade(p,a,.25); out(p,a+.7,.25);
+    to($('rect',c),{stroke:K.sky},a+.25,.2);
+    tl.to(c,{y:dy-24,rotation:0,scale:1.06,duration:.25,ease:'power2.out'},a+.35);
+    tl.to(c,{x:0,duration:.8,ease:'power1.inOut'},a+.6);
+    tl.to(c,{y:pk,duration:.4,ease:'power2.out'},a+.6);
+    tl.to(c,{y:0,scale:1,duration:.4,ease:'power2.in'},a+1.0);
+  });
+  to(q('pile'),{autoAlpha:.35},t+3.6,.6);
+  const wk=q('wk'); tl.base(wk,{autoAlpha:0,x:-338,y:125,scale:.28});
+  tl.to(wk,{autoAlpha:1,duration:.15},t+4.3);
+  tl.to(wk,{x:-278,y:76,duration:.3,ease:'power1.out'},t+4.3);
+  tl.to(wk,{x:0,duration:.45,ease:'power1.inOut'},t+4.6);
+  tl.to(wk,{y:0,scale:1,duration:.35,ease:'power2.out'},t+5.05);
+  pop(q('ok'),t+5.4,{d:.35,fromY:0,fromScale:.4,ease:'back.out(2)'});
+}
+/* S05a(9.2): 1박자(0~0.7) HUD·폰·피드 → 스크롤(0.3~1.5) 피드가 위로 흘러가다 멈추고 스킬 카드가 폰 가운데 → 강조(1.5~1.9) 테두리 accent·1.04배
+   → 2박자(1.9~2.6) 말풍선·'내 카탈로그' 상자 → 날아감(2.7~3.7) 카드가 폰을 빠져나와 곡선으로 상자 카드 더미 맨 위에 → 안착(3.7~4.0) 상자 테두리 한 번
+   → 3박자(3.9~4.6) 폰·말풍선이 흐려져 물러나고 '나중에'·'하네스 만들기' → 올라옴(4.7~5.7) 같은 카드가 셋째 줄에 앉고 배지(5.7~6.0) → ✓(5.8~6.2).
+   점검 문·램프는 없다. 그 뒤 장식 움직임 없이 3.0 머묾 */
+function b12(t,s){
+  const q=id=>E('v12'+id);
+  pop([$('.hud2',s),q('ph'),q('scr')],t,{d:.7});
+  /* 스크롤: 느려지며 멈춤 */
+  tl.base(q('feed'),{y:360}); to(q('feed'),{y:0},t+.3,1.2,'power3.out');
+  /* 강조: '이거다' */
+  tl.base(q('sk'),{borderColor:K.key});
+  to(q('sk'),{borderColor:K.sky},t+1.5,.2);
+  to(q('sk'),{scale:1.04},t+1.5,.2,'power2.out'); to(q('sk'),{scale:1},t+1.7,.2,'power2.in');
+  /* 2박자 */
+  pop([q('bub'),q('my')],t+1.9,{d:.7});
+  /* 날아감: 폰 안 카드 대신 같은 모양 카드가 나와 위로 살짝 떴다가 상자 안으로(0.8배) */
+  const f1=q('f1');
+  hide(f1,{x:0,y:0,scale:1,borderColor:K.sky});
+  tl.set(f1,{autoAlpha:1},t+2.7); tl.set(q('sk'),{autoAlpha:0},t+2.7);
+  to(f1,{x:406},t+2.7,1,'power1.inOut');
+  to(f1,{y:-40},t+2.7,.45,'power2.out'); to(f1,{y:99.4},t+3.15,.55,'power2.in');
+  to(f1,{scale:.8},t+2.9,.8);
+  to(f1,{borderColor:K.key},t+3.3,.4);
+  /* 안착: 상자 테두리가 한 번 켜졌다 돌아옴 */
+  to(q('myr'),{stroke:K.sky},t+3.7,.15); to(q('myr'),{stroke:K.key},t+3.85,.15);
+  /* 3박자: 폰·말풍선은 흐려져 물러남(0.7, 흐린 글자도 대비 3:1 이상) */
+  to([q('ph'),q('scr'),q('bub')],{autoAlpha:.7,scale:.96},t+3.9,.7);
+  pop([q('later'),q('mk')],t+3.9,{d:.7});
+  /* 올라옴: 상자 맨 위 카드는 남고, 같은 카드가 떠올라 셋째 줄로 건너가 줄 폭에 맞게 앉음 */
+  const f2=q('f2');
+  hide(f2,{x:-446,y:-57.6,scale:.8,width:292,borderColor:K.key});
+  tl.set(f2,{autoAlpha:1},t+4.7);
+  to(f2,{y:-80,scale:.86},t+4.7,.3,'power2.out');
+  to(f2,{x:0},t+4.9,.8,'power2.inOut');
+  to(f2,{y:0},t+5.0,.7,'power2.inOut');
+  to(f2,{scale:1},t+5.0,.6);
+  to(f2,{width:532},t+5.35,.35,'power2.out');
+  pop(q('bdg'),t+5.7,{d:.3,fromY:0,fromScale:.6,ease:'back.out(2)'});
+  /* 골라짐 */
+  to(f2,{borderColor:K.sky},t+5.8,.3);
+  pop(q('ok'),t+5.8,{d:.4,fromY:0,fromScale:.4,ease:'back.out(2)'});
+}
+/* S03: 0박자 HUD·카드 둘(작업 절차 스킬 / 답변 스타일 스킬)·가운데 '응답 첫 줄' 상자.
+   1박자 카드마다 말풍선 하나가 튀어나와 상자 양옆으로 날아감. 움직임: 두 말풍선이 상자를 양쪽에서 당기면(원인) 상자가 흔들리고 불꽃 + '지시 모순'(결과).
+   2박자 해결안 하나를 고르는 작은 ✓ + '우선순위 한 줄' → 아래에서 CLAUDE.md 카드가 올라와 한 줄이 써지면(원인) 당김이 멈추고
+   상자가 '① 결론 / ② 스킬 안내 (짧게)' 두 줄로 정리되며 체크, '지시 모순'은 물러남(결과).
+   3박자 끝(8.0~8.8) 무대 아래 강조 줄 '스킬 우선순위를 정해 충돌을 해결해 드려요'가 떠오르며 등장이 끝난다. 그 뒤는 완성 화면 유지(장식 움직임 없음) */
+function b3(t,s){
+  pop([E('a3h'),E('a3cd1'),E('a3cd2')],t,{d:.7,fromY:16});
+  pop(E('a3tg'),t+.8,{d:.5,fromY:0,fromScale:.9});
+  [['a3b1',-146],['a3b2',146]].forEach(([id,dx])=>{const g=E(id);
+    tl.base(g,{autoAlpha:0,x:dx,y:-60,scale:.4});
+    tl.to(g,{autoAlpha:1,y:-40,scale:1,duration:.4,ease:'back.out(1.6)'},t+1.5);
+    tl.to(g,{x:0,y:0,duration:.7,ease:'power2.inOut'},t+2.1);});
+  draw($$('path',E('a3rope')),t+2.8,.2);
+  draw($$('path',E('a3arw')),t+2.9,.3);
+  shake([E('a3b1'),E('a3tg'),E('a3b2'),E('a3rope'),E('a3arw')],t+3.0,.9,12,6,0);
+  pop(E('a3bang'),t+3.5,{d:.2,fromY:0,fromScale:.5});
+  flash($('rect',E('a3tg')),t+3.5,K.key);
+  pop(E('a3c1'),t+3.6,{d:.35,fromY:0,fromScale:.6,ease:'back.out(2)'});
+  out(E('a3bang'),t+4.2,.3);
+  pop(E('a3pick'),t+5.4,{d:.35,fromY:0,fromScale:.4,ease:'back.out(2)'});
+  pop(E('a3pl'),t+5.5,{d:.35,fromX:-12,fromY:0});
+  pop(E('a3md'),t+5.9,{d:.6,fromY:80});
+  grow(E('a3ml'),t+6.3,.7);
+  out([E('a3c1'),E('a3rope'),E('a3arw'),E('a3tt')],t+7.0,.3);
+  fade(E('a3tt2'),t+7.2,.3);
+  pop(E('a3l1'),t+7.2,{d:.35,fromY:10});
+  pop(E('a3l2'),t+7.35,{d:.35,fromY:10});
+  pop(E('a3ok'),t+7.6,{d:.35,fromY:0,fromScale:.5,ease:'back.out(2)'});
+  to([E('a3b1'),E('a3b2')],{color:K.muted},t+7.6,.4);
+  to($$('.a3bb,.a3tl',s),{stroke:K.line},t+7.6,.4);
+  pop(E('a3em'),t+8.0,{d:.8,fromY:16});
+}
+/* S06: 박자 1 HUD·예시 배지·문 둘·승인·폴더·컨베이어 + 'skills' 탭과 카드 7장이 왼쪽에서 한꺼번에 들어섬.
+   박자 2(원인 → 결과): 컨베이어가 흐르고, 줄이 첫 문(충돌 체크)을 지나며 한 장이 '충돌' 칩을 달고 아래로, 뒤이어 둘째 문(보안 체크)에서 한 장이 'DO_NOT_INSTALL' 칩을 달고 아래로 튕긴다.
+   박자 3: 통과한 카드는 승인 앞에 모였다가 승인 체크가 켜지면 'skills' 탭과 함께 한꺼번에 'PPT 프로젝트' 폴더로 들어간다(탭은 들어가며 사라짐) */
+function b6(t,s){
+  const q=id=>E('g6'+id), C=[0,1,2,3,4,5,6].map(k=>q('c'+k)), cx=k=>96+74*k, v=300, t0=t+1.8;
+  pop([q('h'),q('x'),q('belt'),q('d1'),q('d2'),q('ok'),q('fo')],t,{d:.7,fromY:16});
+  pop([...C,q('lb')],t+.3,{d:.9,fromX:-560,fromY:0,ease:'power2.out'});
+  hide([q('ck'),q('j1'),q('j2')]);
+  tl.to(q('belt'),{strokeDashoffset:-1110,duration:3.7,ease:'none'},t0);
+  /* 걸리는 카드: 문 가운데까지 흐른 뒤 아래로 튕겨 흐려지고(글자 없는 카드), 카드 밑에 칩이 붙는다 */
+  [[5,740,'f1',-10,'j1'],[2,1070,'f2',8,'j2']].forEach(([k,X,f,r,j])=>{
+    const d=(X-cx(k))/v, h=t0+d;
+    tl.to(C[k],{x:X-cx(k),duration:d,ease:'none'},t0);
+    flash(q(f),h,K.line);
+    tl.to(C[k],{y:110,rotation:r,duration:.45,ease:'power2.in'},h);
+    tl.to(C[k],{autoAlpha:.55,duration:.3},h+.25);
+    pop(q(j),h+.4,{d:.3,fromY:0,fromScale:.6,ease:'back.out(2)'});
+  });
+  /* 통과한 카드: 승인 앞에 겹쳐 모였다가(먼저 온 카드가 앞) 승인 뒤 작아지며 승인 원 아래로 내려가 오른쪽으로 돈 다음 폴더 안에 한 줄로(서로 겹치지 않게) */
+  const W={6:1172,4:1170,3:1168,1:1166,0:1164}, S={0:1387,1:1419,3:1451,4:1483,6:1515};
+  [0,1,3,4,6].forEach((k,i)=>{
+    const dx=W[k]-cx(k);
+    tl.to(C[k],{x:dx,duration:dx/v,ease:'none'},t0);
+    const a=t+6.0+i*.05;
+    tl.to(C[k],{y:110,scale:.375,duration:.3,ease:'power2.out'},a);
+    tl.to(C[k],{x:1340-cx(k),duration:.4,ease:'power1.inOut'},a+.3);
+    tl.to(C[k],{x:S[k]-cx(k),y:10,duration:.35,ease:'power2.inOut'},a+.7);
+  });
+  /* skills 탭: 줄 맨 뒤 카드(0번)와 같은 거리·빠르기로 흐르고, 먼저 줄어들며 왼쪽으로 비켜 승인 원과 겹치지 않게 카드와 같은 아래 길로 폴더에 들어가며 사라진다 */
+  const L0=W[0]-cx(0);
+  tl.to(q('lb'),{x:L0,duration:L0/v,ease:'none'},t0);
+  tl.to(q('lb'),{x:1036,scale:.3,duration:.2,ease:'power2.out'},t+5.85);
+  tl.to(q('lb'),{y:157,duration:.25,ease:'power2.out'},t+6.05);
+  tl.to(q('lb'),{x:1217,duration:.4,ease:'power1.inOut'},t+6.3);
+  tl.to(q('lb'),{x:1296,y:78,duration:.35,ease:'power2.inOut'},t+6.7);
+  tl.to(q('lb'),{autoAlpha:0,duration:.25,ease:'power1.in'},t+6.85);
+  tl.to(q('rr'),{stroke:K.sky,duration:.3},t+5.6);
+  pop(q('ck'),t+5.6,{d:.3,fromY:0,fromScale:.4,ease:'back.out(2)'});
+  tl.to(q('fp'),{stroke:K.sky,duration:.4},t+6.7);
+}
+/* S07: 박자 1 HUD·예시 배지·스킬 카드 줄 + 에이전트 상자 넷(모델·추론 강도 태그까지).
+   박자 2(원인 → 결과): 스킬 카드 넷이 촤르륵 아래로 날아가 상자 슬롯에 꽂히고, 꽂힌 상자 테두리가 켜진다.
+   박자 3: 리뷰 상자에 '읽기 전용'. 둘째 자막 때 모델 태그가 한 번 도드라진다 */
+function b7(t,s){
+  const q=id=>E('g7'+id), I=[0,1,2,3], Kc=I.map(i=>q('k'+i));
+  pop([q('h'),q('x')],t,{d:.7,fromY:16});
+  tl.base(Kc,{y:-164});
+  fade(Kc,t,.7);
+  pop(I.map(i=>q('b'+i)),t+.6,{d:.7,fromY:16});
+  I.forEach(i=>{
+    const a=t+2.2+i*.12, c=Kc[i];
+    tl.to(c,{y:0,duration:.6,ease:'power2.inOut'},a);
+    tl.to(c,{rotation:i%2?-5:5,duration:.25},a); tl.to(c,{rotation:0,duration:.3,ease:'back.out(2)'},a+.4);
+    tl.to(q('r'+i),{stroke:K.key,duration:.3},a+.6);
+  });
+  pop(q('lk'),t+4.6,{d:.4,fromY:0,fromScale:.6,ease:'back.out(2)'});
+  I.forEach(i=>{const g=q('t'+i); tl.to(g,{scale:1.08,duration:.2},t+5.3); tl.to(g,{scale:1,duration:.3},t+5.5);});
+}
+/* S08: 박자 1 HUD·예시 배지 → 설계안 틀·탭·빈 칸이 서고(t+.2), 칸 제목과 항목이 읽는 순서대로 0.16초 간격으로 촤르륵 생긴다(t+.6~3.2, 사용자 지시 run-20261113-0100):
+   에이전트·스킬 칩 넷 → 지킬 조건 줄 셋(✓가 켜진 채로, 줄 0.05초 뒤) → 작업 흐름 노드 위에서 아래로(연결선과 함께) → 되돌아가는 화살표.
+   박자 2 '승인' 버튼이 떠서(3.4) 눌린다(5.0).
+   박자 3(원인 → 결과, 장면 뒤쪽 절반): 승인 → 설계안이 위로 접혀 '설계안 ✓' 띠가 되고 '하네스 만드는 중'과 도는 진행 고리가 뜬다.
+   그 아래 파일 트리에서 .claude/agents/ → 에이전트 파일 넷 → .claude/skills/ → CLAUDE.md가 0.45초 간격으로 하나씩 생기고(DESIGN Don't 4차 예외), 마지막에 고리가 ✓로 바뀐다 */
+function b8(t,s){
+  const q=id=>E('g8'+id), F=[0,1,2,3,4,5,6].map(i=>q('f'+i));
+  pop([q('h'),q('x')],t,{d:.7,fromY:16});
+  pop(q('pn'),t+.2,{d:.6,fromY:16});
+  /* 촤르륵: g8cl 안 세 묶음(에이전트·스킬 / 지킬 조건 / 작업 흐름)의 자식 순서대로 단계를 만든다 */
+  const [GA,GK,GW]=[...q('cl').children].filter(e=>e.tagName==='g').map(g=>[...g.children]);
+  const ST=[[GA[0]],[GA[1]],[GA[2]],[GA[3]],[GA[4]],
+    [GK[0]],[GK[1],GK[2]],[GK[4],GK[5]],[GK[7],GK[8]],
+    [GW[0]],[GW[1],GW[2]],[GW[3],GW[4],GW[5]],[GW[6],GW[7],GW[8]],[GW[9],GW[10],GW[11]],[GW[12]]];
+  ST.forEach((g,i)=>pop(g,t+.6+i*.16,{d:.35,fromY:10}));
+  /* 지킬 조건 ✓는 줄(6~8단계)과 함께 켜진 채로 생긴다 */
+  [0,1,2].forEach(i=>pop(q('k'+i),t+.6+(6+i)*.16+.05,{d:.3,fromY:0,fromScale:.4,ease:'back.out(2)'}));
+  /* 승인 버튼: 3.4초에 떠서 1.6초 보인 뒤 눌림 */
+  pop(q('bt'),t+3.4,{d:.5,fromY:12});
+  tl.to(q('bt'),{scale:.88,duration:.12},t+5.0); tl.to(q('bt'),{scale:1,duration:.25,ease:'back.out(2)'},t+5.12);
+  pop(q('btk'),t+5.15,{d:.3,fromY:0,fromScale:.4,ease:'back.out(2)'});
+  out([q('cl'),q('bt'),q('tab')],t+5.5,.3);
+  /* 설계안이 위로 접혀 띠(높이 64)가 되고, 같은 자리의 '설계안 ✓' 띠로 바뀐다 */
+  tl.base(q('pr'),{transformOrigin:'50% 0%'}); tl.to(q('pr'),{scaleY:.129,duration:.5,ease:'power2.inOut'},t+5.7);
+  fade(q('ok'),t+6.15,.25); out(q('pr'),t+6.2,.15);
+  /* 하네스 만드는 중: 진행 고리가 돌고, 파일이 하나씩 생긴다 */
+  pop([q('mk'),q('rg')],t+6.3,{d:.4,fromY:10});
+  tl.to(q('rg'),{rotation:1440,duration:3.5,ease:'none'},t+6.3);
+  F.forEach((f,i)=>pop(f,t+6.7+i*.45,{d:.35,fromX:-12,fromY:0}));
+  out(q('rg'),t+9.8,.15); pop(q('dn'),t+9.85,{d:.35,fromY:0,fromScale:.5,ease:'back.out(2)'});
+}
+/* S08a: 1박자(0~1.5) DESIGN.md와 '슬라이드 작성'이 한 번에 서고, 선이 DESIGN.md 아래 연결점에 닿아 슬라이드 카드가 선다(제목만 기준과 다른 색).
+   2박자(2~4.4, 원인 → 결과) '디자인 QA'가 같은 굵기의 선으로 같은 연결점에 닿고, 돋보기가 제목을 짚어 '기준과 다름' → 칩이 물러난 뒤 제목이 견본 색으로, 칩 오른쪽 밖에 ✓.
+   3박자(14차 새로 짬, 4.2~6.4, 원인 → 결과)
+   4.2~4.8 작은 CLAUDE.md(호출 조건 · 변경 이력)와 오른쪽 위 모서리 꼬리표 '새 세션마다 읽힘'이 함께 서고, 위 줄은 같은 때 불투명도 0.7로 물러난다(S10b와 같은 방식, 글자 대비 3:1 이상).
+   4.8~5.4 '호출 조건' 줄 끝 점에서 오른쪽으로 선이 그어지고 점 하나가 같은 빠르기로 따라간다(한 방향) → 5.4~5.9 점이 닿는 순간 오케스트레이터 「공통 규칙」이 선다 →
+   5.9~6.4 칩 둘('토큰 사용량 상한' · '도구 호출 상한')이 primary 채움 + on-primary 글자로 켜진다(0.2 간격). 마지막 등장 끝 6.4, 그 뒤는 완성 화면 유지(장식 움직임 없음).
+   15차: 크기로 대비 — CLAUDE.md 380×140(y 636~776), 「공통 규칙」 760×168(y 608~776), 진행 표시줄과 24 띄움. ✓는 슬라이드 카드 오른쪽 위 모서리 */
+function bka(t,s){
+  const q=id=>E('ka'+id), svg=$('svg',s);
+  /* 10차: 공통 규칙 칩 폭을 글자에 맞춘다(글자 폭 + 좌우 20, 칩 사이 16) */
+  try{const w0=q('t0').getComputedTextLength(), w1=q('t1').getComputedTextLength();
+    if(w0>0&&w1>0){const W0=Math.round(w0+40), W1=Math.round(w1+40), x1=752+W0+16;
+      q('c0').setAttribute('width',W0); q('t0').setAttribute('x',752+W0/2);
+      q('c1').setAttribute('x',x1); q('c1').setAttribute('width',W1); q('t1').setAttribute('x',x1+W1/2);}}catch(e){}
+  pop([q('h'),q('x')],t,{d:.7,fromY:16});
+  pop([q('dm'),q('a0')],t+.2,{d:.7,fromY:16});
+  draw(q('l0'),t+.6,.5);
+  pop(q('cd'),t+1.0,{d:.5,fromY:10});
+  pop(q('a1'),t+2.0,{d:.6,fromY:16});
+  draw(q('l1'),t+2.2,.5);
+  pop(q('mg'),t+2.8,{d:.4,fromY:0,fromScale:.6,ease:'back.out(2)'});
+  pop(q('ng'),t+3.0,{d:.35,fromY:0,fromScale:.5,ease:'back.out(2)'});
+  tl.to(q('tt'),{fill:K.key,duration:.4},t+3.6);
+  out(q('ng'),t+3.6,.25);
+  pop(q('ok'),t+3.9,{d:.3,fromY:0,fromScale:.4,ease:'back.out(2)'});
+  out(q('mg'),t+4.1,.3);
+  /* 3박자(14차): 카드와 꼬리표가 함께 → 선과 점 → 점이 닿으면 「공통 규칙」 → 칩 채움 */
+  pop([q('cl'),q('w1')],t+4.2,{d:.6,fromY:16});
+  tl.to([q('dm'),q('a0'),q('a1'),q('cd'),q('ok'),q('l0'),q('l1')],{autoAlpha:.7,duration:.5},t+4.2);
+  pop(q('n'),t+4.8,{d:.2,fromY:0,fromScale:.4});
+  draw(q('cn'),t+4.8,.6);
+  packet(svg,'M316,710 H706',t+4.8,.6,'power2.inOut');
+  pop(q('ar'),t+5.2,{d:.2,fromY:0,fromScale:.5});
+  pop(q('co'),t+5.4,{d:.5,fromY:10});
+  const onK=CV('--s-on-key');
+  [0,1].forEach(i=>{const at=t+5.9+i*.2;
+    tl.to(q('c'+i),{fill:K.key,stroke:K.key,duration:.3},at);
+    tl.to(q('t'+i),{fill:onK,duration:.3},at);});
+}
+/* S10: 0~1.2초 전체 배치가 한 번에 선다. 그 뒤로는 흐름 자체가 움직임:
+   말풍선 → 오케스트레이터 → 지휘 점 → 노드 링 → 문서 패킷이 노드 → _workspace 폴더 → 다음 노드.
+   리뷰에서 지적('!', danger) → 패킷이 폴더를 거쳐 슬라이드 작성으로 되돌아감(점선 강조색) → 다시 리뷰 → 체크 → 디자인 QA → 오케스트레이터 → 완성 PPT(이때 처음 나타남).
+   꼬리(10차, 14.0~17.4): '표지만 다시 해줘' → 슬라이드 작성 노드만 다시 돌고(나머지는 흐림) 패킷이 폴더를 거쳐 카드로 → 표지 썸네일만 바뀌고 '결과물 수정 ✓' */
+function b10(t,s){
+  const q=id=>E('g10'+id), svg=$('svg',s), NX=[236,612,988,1364], FX=[640,760,840,960];
+  const R=[0,1,2,3].map(i=>q('r'+i)), SG=[0,1,2,3].map(i=>q('s'+i)), L=[0,1,2,3].map(i=>q('l'+i)), RG=[0,0,0,0], P=q('pk');
+  pop([q('h'),q('x')],t,{d:.7,fromY:16});
+  pop([q('in'),q('or'),q('n0'),q('n1'),q('n2'),q('n3'),q('ar'),q('bus'),q('ls'),q('fo'),q('fd')],t+.2,{d:.8,fromY:16});
+  hide([q('pc'),q('bb'),q('ok'),q('tail'),q('fix'),...R]);
+  /* 문서 패킷(P와 같은 모양)이 꺾인 길을 따라 움직인다 */
+  const ride=(d,at,dur)=>{const path=svgEl('path',{d,style:'fill:none;stroke:none'},svg), g=svgEl('g',{},svg), Lp=path.getTotalLength(), ob={t:0};
+    svgEl('path',{d:'M-14,-18 H6 L14,-10 V18 H-14 Z',style:'fill:var(--s-accent)'},g);
+    const m=()=>{const p=path.getPointAtLength(ob.t*Lp); g.setAttribute('transform',`translate(${p.x},${p.y})`);};
+    m(); tl.base(g,{autoAlpha:0}); tl.set(g,{autoAlpha:1},at); tl.to(ob,{t:1,duration:dur,ease:'power1.inOut',onUpdate:m},at); tl.set(g,{autoAlpha:0},at+dur);}; tl.base(P,{autoAlpha:0}); tl.base(SG,{opacity:.45});
+  const spin=(i,at)=>{RG[i]+=360; tl.set(R[i],{autoAlpha:1},at); tl.to(R[i],{rotation:RG[i],duration:.6,ease:'none'},at); tl.set(R[i],{autoAlpha:0},at+.6); tl.to(q('nr'+i),{stroke:K.sky,duration:.2},at);};
+  const done=(i,at)=>tl.to(q('nr'+i),{stroke:K.key,duration:.3},at);
+  const seg=(i,at)=>tl.to(SG[i],{stroke:K.sky,opacity:1,duration:.3},at);
+  const mv=(a,b,at,d)=>{tl.set(P,{x:a[0],y:a[1],autoAlpha:1},at); tl.to(P,{x:b[0],y:b[1],duration:d,ease:'power1.inOut'},at); tl.set(P,{autoAlpha:0},at+d);};
+  const via=(i,j,at)=>{mv([NX[i],608],[FX[i],696],at,.5); flash(q('fp'),at+.45,K.line); mv([FX[j],696],[NX[j],608],at+.6,.5);};
+  packet(svg,'M410,306 H600',t+1.2,.45);
+  tl.to(q('orr'),{stroke:K.sky,duration:.3},t+1.65);
+  seg(0,t+1.8); packet(svg,'M800,350 V392 H236 V410',t+1.8,.7);
+  spin(0,t+2.5); via(0,1,t+3.1); done(0,t+3.1);
+  seg(1,t+4.2); spin(1,t+4.2); via(1,2,t+4.8); done(1,t+4.8);
+  seg(2,t+5.9); spin(2,t+5.9);
+  pop(q('bb'),t+6.5,{d:.35,fromY:0,fromScale:.5,ease:'back.out(2)'});
+  tl.to([L[2],L[1]],{stroke:K.sky,duration:.2},t+6.7);
+  via(2,1,t+6.8);
+  spin(1,t+7.9); via(1,2,t+8.5);
+  tl.to([L[2],L[1]],{stroke:K.line,duration:.3},t+9.6);
+  spin(2,t+9.6);
+  out(q('bb'),t+10.1,.2); pop(q('ok'),t+10.2,{d:.3,fromY:0,fromScale:.4,ease:'back.out(2)'}); done(2,t+10.2);
+  via(2,3,t+10.3);
+  seg(3,t+11.4); spin(3,t+11.4);
+  done(3,t+12.0); mv([1364,410],[1000,330],t+12.0,.6);
+  mv([1000,306],[1176,306],t+12.6,.4);
+  pop(q('pc'),t+13.0,{d:.5,fromY:0,fromScale:.9});
+  /* 8차: 카드가 채워지는 순간 위에 '결과물 완성 ✓'가 짧게 튀어 오른다 */
+  pop(q('done'),t+13.1,{d:.4,fromY:0,fromScale:.6,ease:'back.out(2)'});
+  /* 꼬리 1(14.0~15.0): '표지만 다시 해줘'가 오른쪽 위로 떠오르며 서고, '결과물 완성 ✓'(글자 0.5 이상)과 에이전트 노드 넷이 흐려진다(오케스트레이터는 그대로) */
+  out(q('in'),t+14.0,.3); pop(q('tail'),t+14.0,{d:.6,fromX:-30,fromY:24});
+  tl.to([0,1,2,3].map(i=>q('nr'+i)),{stroke:K.line,duration:.4},t+14.3);
+  tl.to(q('done'),{autoAlpha:.5,duration:.4},t+14.3);
+  tl.to([...[0,1,2,3].map(i=>$('.agf',q('n'+i))),q('ok'),...L],{autoAlpha:.6,duration:.4},t+14.3);
+  packet(svg,'M800,350 V392 H612 V410',t+14.5,.5);
+  /* 꼬리 2(15.0~16.2): 슬라이드 작성만 다시 켜지고, 패킷이 폴더로 내려갔다 올라와 카드로 향한다. 다른 노드는 켜지지 않음 */
+  tl.to([$('.agf',q('n1')),L[1]],{autoAlpha:1,duration:.3},t+15.0);
+  spin(1,t+15.0);
+  mv([612,608],[760,696],t+15.3,.4); flash(q('fp'),t+15.65,K.line);
+  ride('M800,692 V392 H1258 V352',t+15.75,.45);
+  /* 꼬리 3(16.2~17.4): 표지 썸네일만 바뀐다 — 옛 표지가 위로 밀려 사라지고 새 표지가 들어오며 썸네일 테두리가 accent로 한 번 굵어졌다 돌아온다.
+     같은 자리 라벨이 '결과물 완성 ✓' → '결과물 수정 ✓'(팝). 그 뒤는 완성 화면 유지(장식 움직임 없음) */
+  tl.to(q('cv1'),{y:-52,duration:.5,ease:'power2.in'},t+16.2); out(q('cv1'),t+16.55,.15);
+  pop(q('cv2'),t+16.3,{d:.5,fromY:52});
+  tl.to(q('cvb'),{stroke:K.sky,strokeWidth:'7px',duration:.25,ease:'power2.out'},t+16.7);
+  tl.to(q('cvb'),{stroke:K.line,strokeWidth:'2px',duration:.35,ease:'power2.inOut'},t+17.0);
+  out(q('done'),t+16.6,.2);
+  pop(q('fix'),t+16.8,{d:.4,fromY:0,fromScale:.6,ease:'back.out(2)'});
+}
+/* S10a(10차): 1박자(0~2.4) 위 한 줄 · '근거 시트 145KB' · 담당 넷이 함께 서고(14차: '예: 앞의 담당 넷' 뺌), 문서에서 넷으로 선이 갈라져 문서 패킷이 통째로 닿는다.
+   더미는 0.6초부터 쌓이기 시작해 2.4초에 넷 다 같은 높이. 문서는 이때까지 또렷하다.
+   2박자(2.4~5.5, 원인 → 결과): 높은 더미가 다 쌓이고 1.2초 뒤(3.6) 큰 문서가 천천히 흐려지며 물러나고, 같은 자리에 목차 + 조각 넷('하나에 약 20KB 안쪽')이 뜬다.
+   높은 더미는 점선 윤곽('통째로 읽을 때')으로 남고, 조각 한 장씩이 각 담당에 닿아 윤곽 안에 낮은 더미 + '자기 몫만 읽을 때'. 같은 파일이 줄어드는 그림이 아니라 읽는 양의 비교.
+   3박자(5.5~6.6): 아래 띠, 이어서 문서 아이콘 옆 ✕. 그 뒤는 완성 화면 유지(장식 움직임 없음) */
+function bta(t,s){
+  const q=id=>E('ta'+id), svg=$('svg',s), I=[0,1,2,3], CX=[700,920,1140,1360];
+  const HI=I.map(i=>q('hi'+i)), LO=I.map(i=>q('lo'+i)), OL=I.map(i=>q('ol'+i));
+  /* 종이 장: 폭 112 · 두께 10 · 간격 13, 한 장씩 좌우로 조금 어긋나게 겹쳐 쌓는다(높은 더미 8장, 낮은 더미 3장) */
+  const pile=(g,cx,n)=>{for(let k=0;k<n;k++) svgEl('rect',{class:'tash',x:cx-56+(k%2?4:-4),y:613-13*k,width:112,height:10,rx:3},g);};
+  I.forEach(i=>{pile(HI[i],CX[i],8); pile(LO[i],CX[i],3);});
+  /* 위 한 줄 뒤쪽의 accent 밑줄을 글자 자리·폭에 맞춘다 */
+  try{const c2=q('c2'), w=c2.getComputedTextLength(); if(w>0){q('cu').setAttribute('x',Math.round(c2.getStartPositionOfChar(0).x)); q('cu').setAttribute('width',Math.round(w));}}catch(e){}
+  /* 문서 패킷(S10과 같은 모양)이 선을 따라 움직인다 */
+  const pk=(d,at,dur)=>{const path=svgEl('path',{d,style:'fill:none;stroke:none'},svg), g=svgEl('g',{},svg), L=path.getTotalLength(), ob={t:0};
+    svgEl('path',{d:'M-14,-18 H6 L14,-10 V18 H-14 Z',style:'fill:var(--s-accent)'},g);
+    const mv=()=>{const p=path.getPointAtLength(ob.t*L); g.setAttribute('transform',`translate(${p.x},${p.y})`);};
+    mv(); tl.base(g,{autoAlpha:0}); tl.set(g,{autoAlpha:1},at); tl.to(ob,{t:1,duration:dur,ease:'power1.inOut',onUpdate:mv},at); tl.set(g,{autoAlpha:0},at+dur);};
+  /* 1박자 */
+  pop([q('h'),q('x')],t,{d:.7,fromY:16});
+  pop([q('cz'),q('doc'),...I.map(i=>q('a'+i))],t+.1,{d:.7,fromY:16});
+  draw(q('b1'),t+.4,.5);
+  hide(OL);
+  I.forEach(i=>pk(`M430,410 H470 V330 H${CX[i]} V350`,t+.6+i*.08,.8));
+  tl.base([...HI,...LO],{scaleY:0,transformOrigin:'50% 100%'});
+  tl.to(HI,{scaleY:1,duration:1.8,ease:'power1.inOut'},t+.6);
+  /* 2박자: 큰 문서는 크기 변화 없이 천천히 흐려지며 물러난다 */
+  out([q('doc'),q('b1')],t+3.6,.7);
+  pop([q('toc'),q('pc'),q('lb')],t+4.3,{d:.5,fromY:10});
+  fade(q('b2'),t+4.5,.4);
+  /* 높은 더미는 점선 윤곽으로 남고 이름이 붙는다 */
+  fade(OL,t+4.5,.3); out(HI,t+4.6,.4);
+  pop(q('tn'),t+4.6,{d:.4,fromY:8});
+  /* 조각 한 장씩: 점선을 따라 각 담당으로 → 윤곽 안에 낮은 더미 */
+  I.forEach(i=>pk(`M426,378 H470 V330 H${CX[i]} V350`,t+4.6+i*.06,.6));
+  tl.to(LO,{scaleY:1,duration:.4,ease:'power2.out'},t+5.1);
+  pop(q('lw'),t+5.1,{d:.4,fromY:8});
+  /* 3박자 */
+  pop(q('band'),t+5.5,{d:.7,fromY:16});
+  pop(q('bx'),t+6.2,{d:.4,fromY:0,fromScale:.4,ease:'back.out(2)'});
+}
+/* S10b(10차): 1박자(0~2.0, 쌓임) 위쪽 줄(주 메시지)과 '지금 세션' 창이 먼저 서고, 대화 막대 셋이 아래부터 쌓이는 만큼 '컨텍스트' 게이지가 함께 높아진다.
+   2박자(2.0~4.0, 먼저 제안) 게이지가 높을 때 제안 말풍선 '새 세션에서 이어 할까요?' → ✓ 도장.
+   3박자(4.0~6.0, 옮기기) 창 아래에서 '기존 작업 내용.md'('보통 1~3KB')가 올라와 오른쪽 '새 세션' 창으로 넘어가고 왼쪽 창은 흐려진다(불투명도 0.7) →
+   새 게이지는 낮게 다시 시작 → 입력창 → 부가 칩 '안정적인 작업 재개'. 문서가 새 창에 닿는 5.4에 위쪽 줄이 '…새 세션을 권해 토큰 절약을 도와드려요'로 바뀐다(12차).
+   그 뒤는 완성 화면 유지(장식 움직임 없음) */
+function bnb(t,s){
+  const q=id=>E('nb'+id), M=[0,1,2].map(i=>q('m'+i)), G0=q('g0'), G1=q('g1');
+  pop([q('h'),q('x')],t,{d:.7,fromY:16});
+  pop([q('top'),q('w0')],t+.2,{d:.6,fromY:16});
+  tl.base([G0,G1],{scaleY:0,transformOrigin:'50% 100%'});
+  M.forEach((m,k)=>{const at=t+.6+k*.45; pop(m,at,{d:.4,fromY:14}); tl.to(G0,{scaleY:[.35,.62,.88][k],duration:.45,ease:'power2.out'},at);});
+  /* 2박자(먼저 제안) */
+  pop(q('pr'),t+2.1,{d:.5,fromY:0,fromScale:.7,ease:'back.out(2)'});
+  pop(q('ok'),t+3.0,{d:.35,fromY:0,fromScale:.4,ease:'back.out(2)'});
+  /* 3박자(옮기기) */
+  pop([q('doc'),q('kb')],t+4.0,{d:.5,fromY:120});
+  pop(q('w1'),t+4.2,{d:.5,fromY:16});
+  tl.to([q('w0'),...M,q('pr'),q('ok')],{autoAlpha:.7,duration:.5},t+4.6);
+  to([q('doc'),q('kb')],{x:780,y:-184},t+4.6,.8);
+  /* 12차: 문서가 닿는 5.4에 위쪽 줄 교체 — 앞 줄이 다 사라진 뒤(5.15~5.4) 새 줄이 나타나(5.4~5.8) 두 줄이 겹쳐 읽히지 않는다 */
+  tl.to(q('top'),{autoAlpha:0,duration:.25,ease:'power1.in'},t+5.15);
+  pop(q('top2'),t+5.4,{d:.4,fromY:8});
+  tl.to(G1,{scaleY:.15,duration:.4,ease:'power2.out'},t+5.2);
+  pop(q('in'),t+5.3,{d:.4,fromY:10});
+  pop(q('safe'),t+5.6,{d:.4,fromY:8});
+}
+/* S11(5차 자동 개선): 1박자 HUD·고리(승인 문 닫힘)·흐린 네 칸·기운 블록의 하네스·흐린 기록 파일.
+   ('회고할 때' 막대는 13차 도중 사용자 지시로 뺌 — 말풍선만)
+   2박자: 점이 '써 보기' → '피드백'(사용자 말풍선 '좀 느린데?') → '제안'(제안 카드 '이렇게 고칠까요?') → 승인 문 앞에서 멈춤 → '승인' 버튼 ✓, 문이 열려야 지나간다.
+   3박자: '반영'에서 점이 하네스로 뛰어들어 블록이 바로 서고, 고리를 돌아 '써 보기'로. 하네스 윤곽이 기록 파일 윗줄로 들어가 새 줄이 생긴다(13차: 끝의 작은 보조 글 뺌) */
+function b11(t,s){
+  const q=id=>E('g11'+id), svg=$('svg',s), N=[1,2,3,4].map(i=>q('n'+i)), b3=q('b3');
+  pop(q('h'),t,{d:.7,fromY:16});
+  fade(q('ring'),t+.2,.7);
+  fade(N,t+.3,.6,.55);
+  pop(q('hb'),t+.4,{fromY:10});
+  tl.base(b3,{rotation:24,opacity:.45,stroke:K.line,transformOrigin:'50% 100%'});
+  fade(q('file'),t+.5,.6,.7);
+  hide([q('gk'),q('bk'),q('cp')]);
+  lit(N[0],t+1.4);
+  const dot=dotG(svg), O={a:-135,k:0}; N[0].parentNode.insertBefore(dot,N[0]);
+  /* 남은 P2 4: 점은 대각선의 칸 자리에서 고리 바깥으로 비켜 돌아 칸 글자 위를 지나지 않는다 */
+  const mv=()=>{const r=O.a*Math.PI/180, R=250+90*Math.max(0,Math.abs(Math.sin(2*r))-.4)/.6, x=560+R*Math.cos(r), y=520+R*Math.sin(r); dot.setAttribute('transform',`translate(${x+(560-x)*O.k},${y+(520-y)*O.k})`);};
+  const A=(v,at,d,e)=>tl.to(O,{a:v,duration:d,ease:e||'power1.inOut',onUpdate:mv},at);
+  const J=(v,at,d)=>tl.to(O,{k:v,duration:d,ease:'power2.inOut',onUpdate:mv},at);
+  mv(); tl.base(dot,{autoAlpha:0}); tl.set(dot,{autoAlpha:1},t+1.6);
+  A(-45,t+2.0,1.5);
+  lit(N[1],t+3.5); pop(q('say'),t+3.5,{d:.4,fromY:0,fromScale:.6,ease:'back.out(2)'});
+  A(45,t+3.8,1.2);
+  lit(N[2],t+5.0); pop(q('bub'),t+5.1,{fromY:10,fromScale:.6,ease:'back.out(2)'});
+  [5.3,5.7].forEach(a=>{tl.to(b3,{opacity:1,duration:.15},t+a); tl.to(b3,{opacity:.45,duration:.15},t+a+.2);});
+  /* 승인 문 앞에서 멈춘다: '승인' 버튼에 ✓가 켜지고 문이 열린 뒤에야 지나간다 */
+  A(76,t+5.2,.7,'power1.out');
+  flash(q('bt'),t+6.4,K.key); pop(q('bk'),t+6.5,{fromY:0,fromScale:.4,d:.3,ease:'back.out(2)'});
+  tl.to(q('gt'),{stroke:K.sky,duration:.3},t+6.8);
+  pop(q('gk'),t+6.9,{fromY:0,fromScale:.4,d:.3,ease:'back.out(2)'});
+  A(135,t+7.2,.8,'power1.in');
+  lit(N[3],t+8.0);
+  /* 하네스로 뛰어들 때는 '반영' 글자 위를 지나지 않게 고리 왼쪽(180°)으로 돌며 들어가고, 거기서 나온다 */
+  A(180,t+8.0,.4); J(1,t+8.15,.5);
+  tl.to(b3,{rotation:0,opacity:1,stroke:K.sky,duration:.4,ease:'back.out(2)'},t+8.6);
+  flash(q('hr'),t+9.0,K.key);
+  J(0,t+9.1,.4);
+  A(225,t+9.5,.9);
+  tl.to(N[0],{scale:1.08,duration:.15},t+10.4); tl.to(N[0],{scale:1,duration:.25},t+10.55);
+  tl.to(dot,{autoAlpha:0,duration:.3},t+10.6);
+  /* 복사본은 문서 윗줄 자리(중심 1340, 540)로: 맨 아래 'harnesskit.lock' 글자 위를 지나지 않는다 */
+  const cp=q('cp');
+  tl.set(cp,{autoAlpha:1},t+9.6);
+  tl.to(cp,{x:740,y:20,scale:.5,duration:1.2,ease:'power2.inOut'},t+9.7); tl.to(cp,{autoAlpha:0,duration:.2},t+10.9);
+  grow(q('a1'),t+9.7,1.2);
+  tl.to(q('file'),{autoAlpha:1,duration:.3},t+10.7);
+  grow(q('nl'),t+10.9,.4);
+  /* 14차: 새 줄 밑 라벨 '하네스 개선 반영'이 새 줄과 함께 뜬다(10.9~11.3, 마지막 등장 끝) */
+  pop(q('nt'),t+10.9,{d:.4,fromY:8});
+}
+/* S09: 하네스 카드(1박자) → 폴더 둘과 mirror(2박자) → lock 문서·동료 PC·말풍선(3박자).
+   움직임 하나: lock 사본이 동료 PC로 날아가면(원인) 같은 하네스 카드가 모니터에 생기고 아래에 '동료 PC에서도 설정을 공유해 그대로 쓸 수 있어요'(결과, 두 줄).
+   그 뒤는 완성 화면 유지(장식 움직임 없음) */
+function b9(t,s){
+  const q=id=>E('v9'+id);
+  pop([$('.hud2',s),$('.bdg',s),q('h')],t,{d:.7});
+  pop(q('f'),t+.8,{d:.7});
+  pop([q('lk'),q('pc')],t+1.6,{d:.7});
+  hide(q('fly'));
+  tl.set(q('fly'),{autoAlpha:1},t+2.5);
+  tl.to(q('fly'),{y:170,duration:1,ease:'power2.inOut'},t+2.5);
+  out(q('fly'),t+3.5,.25);
+  pop(q('mini'),t+3.5,{fromY:0,fromScale:.85,d:.6});
+  tl.to(q('scr'),{stroke:K.sky,duration:.3},t+3.5);
+  pop(q('same'),t+3.7,{d:.5,fromY:10});
+}
+/* S14(13.5, S01과 수미상관): 0박자 HUD·입력창 → '킷으로 이 프로젝트 하네스 만들어줘'가 타자처럼(0.5~3.0) → 멈춤(3.0~3.8, 커서만 깜박) → 3.8 보내기 '딸깍'(원인, 공용 ask).
+   기능 카드(4.1~9.7, 1.0 간격으로 하나씩, DESIGN Don't 9차 예외): 카드가 떠오를 때 테두리가 남색으로 잠깐 굵어졌다 가라앉고, 오른쪽 작은 체크가 켜짐.
+   태그라인과 맨 아래 작은 한 줄('지금 바로 사용해보세요!')이 함께 서고(9.7~10.5) 끝까지 남는다. 그 뒤 장식 움직임 없이 3.0 머묾 */
+function b14(t,s){
+  pop([E('v14h'),E('v14in')],t,{d:.6,fromY:16});
+  ask('v14',t+.5,t+3.0,t+3.8);
+  [1,2,3,4,5,6].forEach((n,i)=>{
+    const g=E('v14k'+n), r=$('rect',g), a=t+4.1+i*1.0;
+    pop(g,a,{d:.45,fromY:24,fromScale:.96});
+    tl.to(r,{stroke:K.key,strokeWidth:'6px',duration:.25},a);
+    tl.to(r,{stroke:K.line,strokeWidth:'3px',duration:.3},a+.6);
+    pop($('path.ck:last-of-type',g),a+.3,{d:.3,fromY:0,fromScale:.4,ease:'back.out(2)'});
+  });
+  pop(E('v14tg'),t+9.7,{d:.8});
+  fade(E('v14ins'),t+9.7,.8);
+}
+const BUILD=[b1,b2,b4,b5,b12,b3,b6,b7,b8,bka,b10,bta,bnb,b11,b9,b14];
+CH.forEach((c,i)=>{
+  const el=c.el;
+  if(i>0){hide(el); tl.set(el,{autoAlpha:1},c.start);}
+  BUILD[i](c.start,el);
+  if(i<CH.length-1) tl.to(el,{autoAlpha:0,duration:.45,ease:'power1.in'},c.start+c.dur-.45);
+});
+tl.end(TOTAL);
+/* 움직임 줄이기: 어느 시각이든 그 장면의 완성 상태를 보인다 */
+if(RM) tl.map=t=>{let i=CH.findIndex(c=>t<c.start+c.dur); if(i<0) i=CH.length-1; return CH[i].start+CH[i].rest;};
+
+/* ---------- 조작 ---------- */
+const cap=E('caption'), capText=E('capText');
+const track=E('track'), segsEl=E('segs'), bPlay=E('bPlay'), bPrev=E('bPrev'), bNext=E('bNext');
+const fmt=x=>{x=Math.max(0,Math.floor(x+1e-6)); return Math.floor(x/60)+':'+String(x%60).padStart(2,'0');};
+E('tAll').textContent=fmt(RT(TOTAL));
+track.setAttribute('aria-valuemax',String(Math.round(RT(TOTAL))));
+const segs=CH.map(c=>{const d=document.createElement('div'); d.className='seg'; d.style.flex=String(c.dur); d.title=`${c.label} · ${c.name}`; d.appendChild(document.createElement('i')); segsEl.appendChild(d); return d;});
+let cur=-1, autoLine=-1, restMode=true;
+/* 숨겨지는 장면 안에 있던 초점을 재생 버튼으로 옮기기 위해 마지막 초점을 기억한다 */
+let lastF=null;
+document.addEventListener('pointerdown',()=>{lastF=null;},true);
+document.addEventListener('focusin',e=>{lastF=e.target;});
+
+function restartAnim(el){if(RM) return; el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap');}
+function lineAt(c,t){const lt=t-c.start; let k=0; c.lines.forEach((l,j)=>{if(l.at<=lt+1e-6) k=j;}); return k;}
+/* 자막(15차): 지금 문장 하나만 띠에 보인다. 띠([data-hk=caption])가 aria-live="polite"라 문장이 바뀌면 읽어 준다 */
+function showLine(c,k){
+  const l=c.lines[k]; capText.textContent=l.text; restartAnim(capText);
+  if(l.fact) cap.dataset.fact=l.fact; else delete cap.dataset.fact;
+}
+function applyChapter(i){
+  const c=CH[i];
+  document.body.dataset.sceneIndex=String(i);
+  segs.forEach((sg,k)=>sg.classList.toggle('on',k===i));
+  setTrk(i);
+  bPrev.setAttribute('aria-disabled',String(i===0));
+  bNext.setAttribute('aria-disabled',String(i===CH.length-1));
+}
+sync=function(){
+  const t=tl.time();
+  let i=CH.findIndex(c=>t<c.start+c.dur); if(i<0) i=CH.length-1;
+  if(i!==cur){
+    const p=cur, a=document.activeElement, f=(a&&a!==document.body)?a:lastF;
+    cur=i; autoLine=-1; applyChapter(i);
+    if(p>=0&&f&&f!==bPlay&&(CH[p].el.contains(f)||!f.isConnected)) bPlay.focus({preventScroll:true});
+  }
+  setTrk(i,t-CH[i].start);
+  /* 멈춘 채 장면으로 옮긴 상태(restMode): 그림은 완성 상태로 두고, 시간·진행 막대·자막 강조는 그 장면 시작으로 보인다 */
+  const v=restMode?CH[i].start:t;
+  const k=lineAt(CH[i],v); if(k!==autoLine){autoLine=k; showLine(CH[i],k);}
+  segs.forEach((sg,j)=>{const c=CH[j], p=Math.min(1,Math.max(0,(v-c.start)/c.dur)); sg.firstChild.style.transform=`scaleX(${p})`;});
+  E('tNow').textContent=fmt(RT(v));
+  const pct=Math.round(v/TOTAL*100);
+  segsEl.setAttribute('aria-valuenow',String(pct)); segsEl.setAttribute('aria-valuetext',`${pct}%`);
+  track.setAttribute('aria-valuenow',String(Math.round(RT(v))));
+  track.setAttribute('aria-valuetext',`${fmt(RT(v))} / ${fmt(RT(TOTAL))}, ${CH[cur].name}`);
+};
+setBtn=function(){
+  const ended=tl.progress()>=1, playing=!tl.paused()&&!ended;
+  bPlay.dataset.state=ended?'end':(playing?'playing':'paused');
+  const lbl=ended?'다시 보기':(playing?'일시정지':'재생');
+  bPlay.setAttribute('aria-label',lbl); bPlay.setAttribute('aria-pressed',String(playing));
+  document.body.dataset.playing=String(playing);
+};
+function toggle(){
+  if(tl.progress()>=1){tl.time(0); tl.play();}
+  else if(tl.paused()){ if(restMode) tl.time(CH[cur].start); tl.play(); }
+  else tl.pause();
+  restMode=false; setBtn();
+}
+/* 재생 중이면 그 장면 처음부터 이어서, 멈춤이면 그림은 그 장면 완성 상태로(시간 표시는 장면 시작).
+   restMode를 먼저 정해야 tl.time()이 부르는 sync가 바른 시간을 보인다 */
+function goChapter(i){
+  i=Math.max(0,Math.min(CH.length-1,i)); const c=CH[i];
+  const playing=!tl.paused()&&tl.progress()<1;
+  if(playing){restMode=false; tl.time(c.start+.01);}
+  else{tl.pause(); restMode=true; tl.time(c.start+c.rest);}
+  setBtn();
+}
+/* 처음·끝에서 aria-disabled인 이전·다음은 재생 중에도 아무 일도 하지 않는다 */
+const goPrev=()=>{ if(cur>0) goChapter(cur-1); };
+const goNext=()=>{ if(cur<CH.length-1) goChapter(cur+1); };
+bPlay.addEventListener('click',toggle);
+bPrev.addEventListener('click',goPrev);
+bNext.addEventListener('click',goNext);
+stage.addEventListener('click',toggle);
+const speeds=[1,1.5,2,0.75]; let sp=0; const bSpeed=E('bSpeed');
+tl.timeScale(BASE*speeds[sp]);
+bSpeed.addEventListener('click',()=>{sp=(sp+1)%speeds.length; tl.timeScale(BASE*speeds[sp]); bSpeed.textContent=speeds[sp]+'×'; bSpeed.setAttribute('aria-label',`재생 속도 ${speeds[sp]}배`);});
+
+function timeAt(x){
+  for(let k=0;k<segs.length;k++){
+    const r=segs[k].getBoundingClientRect();
+    if(x<=r.right+1.5||k===segs.length-1){const p=Math.min(1,Math.max(0,(x-r.left)/r.width)); return CH[k].start+p*CH[k].dur;}
+  }
+  return 0;
+}
+let drag=false, was=false;
+track.addEventListener('pointerdown',e=>{drag=true; was=!tl.paused()&&tl.progress()<1; tl.pause(); restMode=false; try{track.setPointerCapture(e.pointerId);}catch(_){} tl.time(timeAt(e.clientX)); setBtn();});
+track.addEventListener('pointermove',e=>{if(drag) tl.time(timeAt(e.clientX));});
+const endDrag=()=>{if(!drag) return; drag=false; if(was&&tl.progress()<1) tl.play(); setBtn();};
+track.addEventListener('pointerup',endDrag);
+track.addEventListener('pointercancel',endDrag);
+track.addEventListener('keydown',e=>{
+  const k=e.key;
+  /* 진행 막대에 초점이 있어도 Space는 재생 전환(페이지를 스크롤하지 않는다) */
+  if(k===' '||k==='Spacebar'){ e.preventDefault(); e.stopPropagation(); toggle(); return; }
+  /* restMode에서는 화면에 보이는 시각(장면 시작)을 기준으로 옮긴다 */
+  let t=restMode?CH[cur].start:tl.time();
+  if(k==='ArrowLeft') t-=5*BASE; else if(k==='ArrowRight') t+=5*BASE; else if(k==='Home') t=0; else if(k==='End') t=TOTAL; else return;
+  e.preventDefault(); e.stopPropagation(); restMode=false; tl.time(Math.max(0,Math.min(TOTAL,t))); setBtn();
+});
+document.addEventListener('keydown',e=>{
+  if(e.defaultPrevented||e.altKey||e.ctrlKey||e.metaKey) return;
+  const tg=e.target, tag=tg&&tg.tagName;
+  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||(tg&&tg.isContentEditable)||tg===track) return;
+  const k=e.key;
+  if(k===' '||k==='Spacebar'){ if(tag==='BUTTON'||tag==='A') return; e.preventDefault(); toggle(); return; }
+  if(k==='ArrowLeft'){e.preventDefault(); goPrev();}
+  else if(k==='ArrowRight'){e.preventDefault(); goNext();}
+  else if(k==='Home'){e.preventDefault(); goChapter(0);}
+  else if(k==='End'){e.preventDefault(); goChapter(CH.length-1);}
+});
+function fromHash(){
+  const m=/^#s(\d{1,2})$/i.exec(location.hash||''); if(!m) return false;
+  const i=+m[1]-1; if(i<0||i>=CH.length) return false;
+  tl.pause(); goChapter(i); return true;
+}
+window.addEventListener('hashchange',fromHash);
+/* 17차 사용자 결정: 들어오면 자동 재생. 동작 줄이기 설정·장면 링크(#sN)는 멈춘 채로 */
+if(!fromHash()){ if(RM){ restMode=true; tl.time(CH[0].start+CH[0].rest); } else { restMode=false; tl.time(0); tl.play(); } }
+setBtn();
+})();
+</script>
+</body>
+</html>
