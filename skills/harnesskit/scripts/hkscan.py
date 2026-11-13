@@ -155,7 +155,7 @@ def hook_entries(hooks_obj, base_dir, source):
                 }
                 if entry["type"] == "prompt":
                     entry["cost_note"] = "LLM judges every time this event fires"
-                if event in ("SessionStart", "UserPromptSubmit") and base_dir:
+                if event in ("SessionStart", "SubagentStart", "UserPromptSubmit") and base_dir:
                     entry["injects_estimate"] = estimate_injection(cmd, base_dir)
                 out.append(entry)
     return out
@@ -218,14 +218,18 @@ def scan_plugin_dir(path, plugin_id, scope="", enabled=None):
     for p in comp_paths("commands", "commands"):
         commands += [e["name"] for e in scan_md_dir(p, "command")] if os.path.isdir(p) else []
 
-    hooks = []
-    hv = manifest.get("hooks")
-    if isinstance(hv, dict):
-        hooks += hook_entries(hv, path, plugin_id)
-    for hp in ([os.path.join(path, hv)] if isinstance(hv, str) else []) + [os.path.join(path, "hooks", "hooks.json")]:
+    # The manifest "hooks" field may be inline config, one path, or a list of
+    # either; hooks/hooks.json is read too unless the manifest already named it.
+    hooks, hook_files = [], []
+    for hv in (lambda v: v if isinstance(v, list) else [v])(manifest.get("hooks")):
+        if isinstance(hv, dict):
+            hooks += hook_entries(hv, path, plugin_id)
+        elif isinstance(hv, str):
+            hook_files.append(os.path.normpath(os.path.join(path, hv)))
+    default_hooks = os.path.normpath(os.path.join(path, "hooks", "hooks.json"))
+    for hp in hook_files + ([default_hooks] if default_hooks not in hook_files else []):
         if os.path.isfile(hp):
             hooks += hook_entries(read_json(hp) or {}, path, plugin_id)
-            break
 
     mcp = []
     mv = manifest.get("mcpServers")

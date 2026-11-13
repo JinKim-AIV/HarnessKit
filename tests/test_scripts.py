@@ -102,6 +102,21 @@ class ScanTests(unittest.TestCase):
         self.assertEqual(hook["event"], "SessionStart")
         self.assertGreater(hook["injects_estimate"]["chars"], 1500)
 
+    def test_plugin_manifest_lists_hook_files(self):
+        repo = os.path.join(self.e.root, "repo")
+        write(os.path.join(repo, ".claude-plugin", "plugin.json"),
+              json.dumps({"name": "minimal", "hooks": ["./hooks/a.json", "./hooks/hooks.json", {"hooks": {
+                  "Stop": [{"hooks": [{"type": "command", "command": "true"}]}]}}]}))
+        write(os.path.join(repo, "hooks", "a.json"), json.dumps({"hooks": {
+            "SessionStart": [{"hooks": [{"type": "command", "command": "node hooks/on.js"}]}],
+            "SubagentStart": [{"hooks": [{"type": "command", "command": "node hooks/on.js"}]}]}}))
+        write(os.path.join(repo, "hooks", "hooks.json"), json.dumps({"hooks": {
+            "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "true"}]}]}}))
+        hooks = json.loads(self.e.run("hkscan.py", "repo", repo))["items"][0]["hooks"]
+        self.assertEqual(sorted(h["event"] for h in hooks),
+                         ["SessionStart", "Stop", "SubagentStart", "UserPromptSubmit"])
+        self.assertIn("injects_estimate", [h for h in hooks if h["event"] == "SubagentStart"][0])
+
     def test_env_scan_sees_user_project_and_codex(self):
         skill(os.path.join(self.e.claude, "skills", "my-review"), "my-review", "review pull requests")
         skill(os.path.join(self.e.claude, "skills", "synced", "bucket-1", "frontend-design"),
