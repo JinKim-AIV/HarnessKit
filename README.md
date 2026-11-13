@@ -94,17 +94,19 @@ HarnessKit은 Claude Code와 Codex에서 쓰는 AI 스킬입니다. 프로젝트
 
 ## 카탈로그
 
-저장소 파일을 읽고 검토한 도구 55개를 담았습니다. 하네스를 만들 때는 **이미 설치된 것 → 카탈로그 → 웹 탐색** 순으로 후보를 모으고, 설치는 기능 충돌 체크와 SkillSpector 보안 점검을 통과한 것만 합니다. 전체 내용은 `skills/harnesskit/references/catalog.json`에 있고, 스킬은 `hkcatalog.py`로 필요한 항목만 읽습니다.
+저장소 파일을 읽고 검토한 도구 57개를 담았습니다. 하네스를 만들 때는 **이미 설치된 것 → 카탈로그 → 웹 탐색** 순으로 후보를 모으고, 설치는 기능 충돌 체크와 SkillSpector 보안 점검을 통과한 것만 합니다. 전체 내용은 `skills/harnesskit/references/catalog.json`에 있고, 스킬은 `hkcatalog.py`로 필요한 항목만 읽습니다.
 
 | 층 | 도구 | 하는 일 | 주의 |
 |---|---|---|---|
 | 상시 적용 (자리마다 하나) | Attention-kind | 결론부터, 짧게 답하기 | 출력 스타일. AGPL이라 링크로만 안내 |
 | | Karpathy Guidelines | 과한 구현, 관계없는 수정, 말없는 가정 줄이기 | |
+| | Ponytail | 가장 작은 변경, 묻지 않은 추상화·의존성 금지, 리뷰·감사 명령 | Karpathy와 같은 자리. 서브에이전트마다 규칙 주입 |
 | | Superpowers | 브레인스토밍 → 계획 → TDD → 검증 절차 | 매 세션 지침 주입. 하네스 오케스트레이터와 같은 자리 |
 | 작업용 | im-not-ai | 한국어 윤문, 번역투 교정 | |
 | | Anthropic 문서 스킬 | Word·Excel·PPT·PDF | LibreOffice 등 필요 |
 | | kordoc | HWP/HWPX 읽기·쓰기·양식 | `KORDOC_OFFLINE=1` 권장 |
 | | Context7 | 버전별 라이브러리 문서 | 질의가 외부로 전송됨 |
+| | Graphify | 코드를 지식 그래프로 만들어 파일 대신 조회 | `--project`로 설치. 훅은 선택 |
 | | Trail of Bits static-analysis, fp-check | CodeQL·Semgrep 결과 분류, 오탐 판정 | fp-check는 응답마다 판정 훅이 돎 |
 | | Trail of Bits mutation / property-based testing | 테스트 설계 점검 | |
 | | Playwright | 웹 E2E 테스트 | 브라우저 도구는 하나만 |

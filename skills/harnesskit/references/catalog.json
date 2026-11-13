@@ -1,5 +1,5 @@
 {
-  "version": "2026-11-11d",
+  "version": "2026-11-13",
   "about": "HarnessKit 큐레이션 카탈로그. install 명령은 대부분 전역 기준으로 적혀 있다. 실제 설치는 SKILL.md 5단계 표대로 기본 프로젝트 범위로 바꿔 실행한다. verified=direct는 저장소 파일을 직접 읽고 작성한 항목, verified=survey는 조사 과정에서 저장소 문서를 확인한 항목이다. survey 항목의 설치 명령은 쓰기 전에 원 저장소 README로 한 번 더 확인한다. 원문 인용은 영어 그대로 둔다.",
   "conflict_types": {
     "trigger": "같은 요청에 둘 이상이 반응해, 실행할 때마다 어느 쪽이 불릴지 달라진다.",
@@ -135,6 +135,12 @@
           "type": "slot",
           "detail": "Superpowers brainstorming은 'You MUST use this before any creative work'라고 하고 plan/execute 스킬로 작업 절차 전체를 정한다. HarnessKit 오케스트레이터도 자기 절차와 착수 전 확인을 갖는다.",
           "resolve": "HarnessKit 하네스가 있는 프로젝트에서는 Superpowers를 끈다. 아니면 오케스트레이터가 절차를 Superpowers에 맡기고 자기 착수 전 확인을 뺀다."
+        },
+        {
+          "with": "ponytail",
+          "type": "contradiction",
+          "detail": "ponytail 항목 참고.",
+          "resolve": "ponytail 항목 참고."
         }
       ],
       "verified": "direct"
@@ -182,9 +188,98 @@
           "type": "contradiction",
           "detail": "superpowers 항목 참고.",
           "resolve": "superpowers 항목 참고."
+        },
+        {
+          "with": "ponytail",
+          "type": "role",
+          "detail": "ponytail 항목 참고.",
+          "resolve": "ponytail 항목 참고."
         }
       ],
       "verified": "direct"
+    },
+    {
+      "id": "ponytail",
+      "name": "Ponytail (최소 변경 코딩 규칙)",
+      "repo": "https://github.com/DietrichGebert/ponytail",
+      "license": "MIT",
+      "layer": "always-on",
+      "slot": "coding-principles",
+      "capabilities": [
+        "coding-principles",
+        "simplicity",
+        "yagni",
+        "code-review",
+        "repo-audit",
+        "tech-debt"
+      ],
+      "use_when": [
+        "AI가 묻지 않은 추상화·옵션·의존성을 덧붙이거나 diff가 필요 이상으로 커지는 코딩 작업.",
+        "같은 최소 변경 규칙을 서브에이전트까지 똑같이 적용하고 싶을 때(SubagentStart 훅으로 주입한다)."
+      ],
+      "skip_when": [
+        "코드가 아닌 업무(보고서, 문서, 디자인 검토)가 대부분인 하네스: 규칙이 모든 서브에이전트에 들어간다.",
+        "karpathy-guidelines를 이미 쓰는 프로젝트: 같은 원칙을 두 번 넣게 된다."
+      ],
+      "install": {
+        "claude": [
+          "/plugin marketplace add DietrichGebert/ponytail",
+          "/plugin install ponytail@ponytail"
+        ],
+        "codex": [
+          "codex plugin marketplace add DietrichGebert/ponytail",
+          "codex plugin add ponytail@ponytail",
+          "codex에서 /hooks를 열어 훅 2개를 확인하고 신뢰한 뒤 새 스레드를 연다."
+        ]
+      },
+      "requires": [
+        "Node.js (훅 실행)"
+      ],
+      "detect": {
+        "plugins": [
+          "ponytail"
+        ],
+        "skills": [
+          "ponytail",
+          "ponytail-review",
+          "ponytail-audit",
+          "ponytail-debt",
+          "ponytail-gain",
+          "ponytail-help"
+        ]
+      },
+      "always_on": "스킬 설명문 6개(약 400토큰). SessionStart 훅(startup|resume|clear|compact)이 매 세션 skills/ponytail/SKILL.md 본문(약 3.5천 자, 단계별로 거른 것)을 넣고, SubagentStart 훅이 같은 규칙을 서브에이전트마다 넣는다. UserPromptSubmit 훅은 단계 전환(lite·full·ultra·off)을 기록한다.",
+      "external_data": "기본은 없음. 매 턴 작업 기록(비용, 토큰 수, 턴 수, 작업 시간)을 ~/.config/ponytail/band/<프로젝트>.csv에 쓴다(설정 ledger, 기본 켜짐). 플러그인 설정에 웹훅 주소를 넣으면 같은 기록과 작업 이름을 그 주소로 보낸다(기본 비어 있음).",
+      "notes": "README의 효과 수치(코드 -53%, 시간 -41%, 비용 -26%, 토큰 -45%)는 작성자가 39개 작업을 5회씩 돌린 자체 측정이고 외부 검증은 없다. 세션 내내 켜져 있고 'stop ponytail'이나 'normal mode'로 끈다. 비용 기록 기능은 ccusage·hktokens와 겹치므로 하나만 기준으로 삼는다.",
+      "security": "SkillSpector 2.12.0 (--no-llm) 2026-11-13 점검, 설치 범위(.claude-plugin, skills, commands, hooks, scripts, assets): DO_NOT_INSTALL 86점(HIGH 2, MEDIUM 5). HIGH 2건은 테스트 결과 숫자를 정규식으로 읽는 코드와 웹훅 인증값 설정 항목이었다. 판정이 DO_NOT_INSTALL이므로 설치 전에 사용자의 명시적 승인을 받는다.",
+      "conflicts": [
+        {
+          "with": "karpathy-guidelines",
+          "type": "role",
+          "detail": "Ponytail은 'the smallest change that fully solves the task', 'No abstraction, wrapper, type conversion, option, config, boilerplate or \"for later\" code nobody asked for'라고 하고, Karpathy는 'Minimum code that solves the problem. Nothing speculative.', 'No abstractions for single-use code.'라고 한다. 같은 원칙을 두 번 넣고, Ponytail은 본문을 세션과 서브에이전트마다 넣어 비용도 더 든다.",
+          "resolve": "코딩 원칙은 하나만 둔다. 서브에이전트까지 같은 규칙을 강제하려면 Ponytail, 늘 드는 비용을 줄이려면 Karpathy."
+        },
+        {
+          "with": "superpowers",
+          "type": "contradiction",
+          "detail": "Superpowers brainstorming은 'You MUST use this before any creative work - creating features, building components'라며 설계 탐색을 먼저 요구하고, Ponytail은 'Take the first option that fully works'라고 한다. 둘 다 SessionStart 훅으로 세션 전체 지침을 넣는다.",
+          "resolve": "하나만 쓴다. 둘 다 둔다면 한 줄을 넣는다: '새 기능 설계는 brainstorming, 구현 단계는 ponytail 규칙.'"
+        },
+        {
+          "with": "harnesskit",
+          "type": "contradiction",
+          "detail": "SubagentStart 훅이 'inject the same ruleset into each subagent'라서 하네스의 리뷰·디자인 QA·한국어 다듬기 에이전트도 'End your reply with one or two lines'와 최소 변경 규칙을 받는다. 에이전트 정의의 보고 형식이나 개선 지시와 어긋날 수 있다.",
+          "resolve": "코드를 고치는 에이전트에만 필요하면 하네스 프로젝트에서는 lite로 두거나, 보고·검토 에이전트 정의에 '출력 형식은 이 정의를 따른다' 한 줄을 넣는다."
+        },
+        {
+          "with": "official-code-review",
+          "type": "trigger",
+          "detail": "ponytail-review 설명은 'Use for \"review this\", \"code review\", \"review the last commit\", \"review my PR\"'이라서 /code-review(official-code-review, Claude Code 내장 /code-review)와 같은 요청에 반응한다.",
+          "resolve": "리뷰 도구는 하나를 기본으로 정하고, 다른 쪽은 명령 이름으로 부를 때만 쓴다고 적는다."
+        }
+      ],
+      "verified": "direct",
+      "checked": "2026-11-13"
     },
     {
       "id": "attention-span",
@@ -408,6 +503,65 @@
       "external_data": "질의 내용이 context7.com으로 전송된다.",
       "conflicts": [],
       "verified": "direct"
+    },
+    {
+      "id": "graphify",
+      "name": "Graphify (코드 지식 그래프)",
+      "repo": "https://github.com/Graphify-Labs/graphify",
+      "license": "Apache-2.0 (NOTICE 기준. 저장소에 LICENSE-MIT 파일도 있다)",
+      "layer": "optional",
+      "role": "code-graph",
+      "capabilities": [
+        "code-graph",
+        "codebase-query",
+        "architecture-map",
+        "token-saving"
+      ],
+      "use_when": [
+        "큰 코드베이스를 여러 에이전트가 되풀이해 탐색하는 하네스: 파일을 통째로 읽는 대신 graphify query/path/explain으로 필요한 부분만 꺼낸다.",
+        "아키텍처와 호출 관계를 HTML 그림과 GRAPH_REPORT.md로 남기고 싶을 때."
+      ],
+      "skip_when": [
+        "코드가 아닌 업무나 작은 저장소: 그래프를 만드는 비용이 아끼는 양보다 크다.",
+        "모든 Read·Grep 호출 앞에 훅이 도는 것이 부담스러울 때: 훅 없이 스킬만 설치한다."
+      ],
+      "install": {
+        "claude": [
+          "uv tool install graphifyy==0.9.108",
+          "프로젝트 폴더에서: graphify install --project (스킬은 .claude/skills/graphify, 안내 블록은 .claude/CLAUDE.md)",
+          "(선택) graphify claude install: 프로젝트 루트 CLAUDE.md에 같은 블록을 쓰고 .claude/settings.json에 PreToolUse·SessionStart 훅을 추가한다.",
+          "그래프 만들기: /graphify ."
+        ],
+        "codex": [
+          "uv tool install graphifyy==0.9.108",
+          "프로젝트 폴더에서: graphify install --project --platform codex (.agents/skills/graphify)",
+          "병렬 추출: ~/.codex/config.toml의 [features]에 multi_agent = true",
+          "(선택) graphify codex install --project: .codex/hooks.json에 PreToolUse 훅을 추가한다."
+        ]
+      },
+      "requires": [
+        "Python 3.10~3.14",
+        "uv (또는 pip, pipx)"
+      ],
+      "detect": {
+        "skills": [
+          "graphify"
+        ]
+      },
+      "always_on": "스킬 설명문 1개(약 370자)와 CLAUDE.md의 '## graphify' 블록(약 1.1천 자). --project 없이 설치하면 전역 ~/.claude/CLAUDE.md에 블록을 쓴다. 훅을 설치하면 Bash|Grep, Read|Glob 호출마다 graphify hook-guard가 돈다(약 170ms, 제한 10초). SKILL.md 본문(약 5만 자)은 /graphify를 부를 때만 읽힌다.",
+      "external_data": "코드는 tree-sitter로 로컬에서 분석한다('no LLM, nothing leaves your machine'). 문서·PDF·이미지·영상의 의미 분석은 지금 쓰는 어시스턴트 모델이나 따로 설정한 API 키를 쓴다('use your assistant's model, or a configured API key'). 질의 기록은 기본으로 꺼져 있다. 설치 끝에 Graphify Cloud 안내가 출력된다.",
+      "notes": "PyPI 패키지 이름은 graphifyy(y 두 개)다. 이름이 비슷한 다른 패키지를 설치하지 않도록 버전까지 적어 설치한다. 하네스에서는 코드 분석 에이전트 정의의 '## 사용 스킬'에 graphify를 적고, 인계 파일에는 그래프 조회 결과만 남긴다. 그래프를 커밋 때마다 다시 만들려면 graphify hook install(git 훅)을 따로 실행한다.",
+      "security": "SkillSpector 2.12.0 (--no-llm) 2026-11-13 점검, 에이전트가 읽거나 실행하는 파일(SKILL.md, CLAUDE.md 블록, hooks.py, install.py): DO_NOT_INSTALL 100점(HIGH 8, MEDIUM 21). HIGH는 graphify-out 안의 자기 임시 파일을 지우는 명령과 주석 줄이었다. 저장소 전체 검사는 8분을 넘겨 중단했다. 판정이 DO_NOT_INSTALL이므로 설치 전에 사용자의 명시적 승인을 받는다.",
+      "conflicts": [
+        {
+          "with": "feature-dev",
+          "type": "trigger",
+          "detail": "Graphify 설명은 'Use for any question about a codebase, its architecture, file relationships, or project content'이고, feature-dev의 code-explorer는 'Deeply analyzes existing codebase features by tracing execution paths, mapping architecture layers'라서 코드 구조를 묻는 요청에 둘 다 반응한다.",
+          "resolve": "구조 탐색은 하나에 맡긴다. 둘 다 둔다면 'code-explorer는 graphify query 결과를 먼저 읽는다' 한 줄을 넣는다."
+        }
+      ],
+      "verified": "direct",
+      "checked": "2026-11-13"
     },
     {
       "id": "tob-static-analysis",
@@ -1861,6 +2015,12 @@
           "type": "role",
           "detail": "pr-review-toolkit 항목 참고.",
           "resolve": "pr-review-toolkit 항목 참고."
+        },
+        {
+          "with": "ponytail",
+          "type": "trigger",
+          "detail": "ponytail 항목 참고.",
+          "resolve": "ponytail 항목 참고."
         }
       ],
       "verified": "direct",
@@ -1994,6 +2154,12 @@
           "type": "trigger",
           "detail": "pr-review-toolkit 항목 참고.",
           "resolve": "pr-review-toolkit 항목 참고."
+        },
+        {
+          "with": "graphify",
+          "type": "trigger",
+          "detail": "graphify 항목 참고.",
+          "resolve": "graphify 항목 참고."
         }
       ],
       "verified": "direct",
